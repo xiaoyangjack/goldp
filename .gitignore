@@ -7,4 +7,12 @@ node_modules/
 gold_quant_env/
 logs/
 .DS_Store
+*.db
+*.dylib
+GoldQuantWeb.app/
+web_app.py.bak
+.vscode/
+.trae/
+*.command
+
 
