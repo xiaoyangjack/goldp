@@ -1,0 +1,12 @@
+{
+  "strategy": "MA",
+  "parameters": {
+    "fast_window": 20,
+    "slow_window": 40
+  },
+  "total_return": 160.64111242025552,
+  "annual_return": 10.458342807190224,
+  "sharpe_ratio": 0.7338927262926338,
+  "max_drawdown": -28.11417919146547,
+  "win_rate": 50.70074196207749
+}

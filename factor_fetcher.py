@@ -201,3 +201,24 @@ def load_merged_panel(path: Optional[str] = None) -> Optional[pd.DataFrame]:
     df = pd.read_csv(p)
     df["date"] = pd.to_datetime(df["date"], errors="coerce").dt.normalize()
     return df
+
+if __name__ == "__main__":
+    # 运行因子构建
+    try:
+        df, meta = build_merged_panel()
+        logger.info(f"因子构建完成，行数: {len(df)}")
+        logger.info(f"元数据: {meta}")
+        
+        # 计算因子相关性
+        if not df.empty:
+            factor_cols = [col for col in df.columns if col not in ["date", "gold_close"]]
+            correlation = df[factor_cols + ["gold_close"]].corr()
+            logger.info("因子与黄金价格相关性:")
+            logger.info(correlation["gold_close"])
+            
+            # 保存相关性结果
+            correlation_path = _resolve_path("data/factor_correlation.csv")
+            correlation.to_csv(correlation_path)
+            logger.info(f"相关性结果保存到: {correlation_path}")
+    except Exception as e:
+        logger.error(f"运行因子分析失败: {e}")

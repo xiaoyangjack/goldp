@@ -102,3 +102,9 @@ export const goldApi = {
       body: JSON.stringify(data)
     })
 }
+
+// 新闻舆情API
+export const newsApi = {
+  getSentimentStats: () => request<{ code: number; data: any; message: string }>('/news/sentiment'),
+  getNewsList: () => request<{ code: number; data: any[]; message: string }>('/news/list')
+}

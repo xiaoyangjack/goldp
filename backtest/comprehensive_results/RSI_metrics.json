@@ -1,0 +1,12 @@
+{
+  "strategy": "RSI",
+  "parameters": {
+    "overbought": 70,
+    "oversold": 30
+  },
+  "total_return": -19.93440416445489,
+  "annual_return": -2.2819910723833825,
+  "sharpe_ratio": -0.17682901420584662,
+  "max_drawdown": -40.230849908568466,
+  "win_rate": 12.778235779060182
+}

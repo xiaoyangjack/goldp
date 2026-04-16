@@ -94,6 +94,7 @@ import { ref, computed, onMounted } from 'vue'
 import { Refresh } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import * as echarts from 'echarts'
+import { newsApi } from '../../api'
 
 const loading = ref(false)
 const newsType = ref('all')
@@ -105,13 +106,7 @@ const positiveNews = ref(45)
 const negativeNews = ref(20)
 const neutralNews = ref(35)
 
-const newsData = ref([
-  { id: 1, title: '央行降准0.5个百分点，释放长期资金约1万亿元', summary: '中国人民银行决定下调金融机构存款准备金率0.5个百分点，本次下调后，金融机构加权平均存款准备金率约为7.6%。', source: '新华社', time: '2024-01-15 10:30', sentiment: 'positive' },
-  { id: 2, title: '新能源汽车销量再创新高，产业链受益明显', summary: '据中汽协数据，12月新能源汽车销量达120万辆，同比增长45%，全年销量突破1000万辆。', source: '证券时报', time: '2024-01-15 09:15', sentiment: 'positive' },
-  { id: 3, title: '房地产市场持续低迷，多家房企债务承压', summary: '受市场需求不足影响，房地产销售持续下滑，部分房企面临较大的债务偿还压力。', source: '经济观察报', time: '2024-01-14 16:45', sentiment: 'negative' },
-  { id: 4, title: '科创板注册制改革深化，更多优质企业有望上市', summary: '监管层表示将进一步深化科创板注册制改革，优化上市条件，提升市场包容性和吸引力。', source: '上海证券报', time: '2024-01-14 14:20', sentiment: 'neutral' },
-  { id: 5, title: '消费电子行业复苏迹象明显，苹果供应链订单增长', summary: '随着全球经济逐步复苏，消费电子需求有所回升，苹果主要供应商四季度订单环比增长15%。', source: '第一财经', time: '2024-01-14 11:30', sentiment: 'positive' }
-])
+const newsData = ref<any[]>([])
 
 const filteredNews = computed(() => {
   if (newsType.value === 'all') return newsData.value
@@ -182,20 +177,55 @@ const initChart = () => {
   }
 }
 
-const refreshData = () => {
+const fetchSentimentStats = async () => {
+  try {
+    const response = await newsApi.getSentimentStats()
+    if (response.code === 200) {
+      sentimentScore.value = response.data.sentiment_score
+      positiveNews.value = response.data.positive_news
+      negativeNews.value = response.data.negative_news
+      neutralNews.value = response.data.neutral_news
+    }
+  } catch (error) {
+    console.error('Failed to get sentiment stats:', error)
+  }
+}
+
+const fetchNewsList = async () => {
+  try {
+    const response = await newsApi.getNewsList()
+    if (response.code === 200) {
+      newsData.value = response.data
+    }
+  } catch (error) {
+    console.error('Failed to get news list:', error)
+  }
+}
+
+const refreshData = async () => {
   loading.value = true
-  setTimeout(() => {
-    loading.value = false
+  try {
+    await Promise.all([fetchSentimentStats(), fetchNewsList()])
     ElMessage.success('刷新成功')
-  }, 1000)
+  } catch (error) {
+    console.error('Failed to refresh data:', error)
+    ElMessage.error('刷新失败')
+  } finally {
+    loading.value = false
+  }
 }
 
 const viewNews = (item: any) => {
-  ElMessage.info(`查看新闻：${item.title}`)
+  if (item.url) {
+    window.open(item.url, '_blank')
+  } else {
+    ElMessage.info(`查看新闻：${item.title}`)
+  }
 }
 
-onMounted(() => {
+onMounted(async () => {
   initChart()
+  await refreshData()
 })
 </script>
 

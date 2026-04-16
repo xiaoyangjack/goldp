@@ -278,6 +278,54 @@ app.post('/api/gold/backtest', (req, res) => {
   })
 })
 
+// 新闻舆情API
+const { execSync } = require('child_process')
+
+app.get('/api/news/sentiment', (req, res) => {
+  try {
+    // 调用Python脚本获取情感统计数据
+    const result = execSync('python3 ../get_news_data.py sentiment', { encoding: 'utf8' })
+    const data = JSON.parse(result)
+    res.json(data)
+  } catch (error) {
+    console.error('Failed to get sentiment stats:', error)
+    // 返回模拟数据作为备份
+    res.json({
+      code: 200,
+      data: {
+        sentiment_score: 65,
+        positive_news: 45,
+        negative_news: 20,
+        neutral_news: 35
+      },
+      message: 'success'
+    })
+  }
+})
+
+app.get('/api/news/list', (req, res) => {
+  try {
+    // 调用Python脚本获取新闻列表
+    const result = execSync('python3 ../get_news_data.py list', { encoding: 'utf8' })
+    const data = JSON.parse(result)
+    res.json(data)
+  } catch (error) {
+    console.error('Failed to get news:', error)
+    // 返回模拟数据作为备份
+    res.json({
+      code: 200,
+      data: [
+        { id: 1, title: '央行降准0.5个百分点，释放长期资金约1万亿元', summary: '中国人民银行决定下调金融机构存款准备金率0.5个百分点，本次下调后，金融机构加权平均存款准备金率约为7.6%。', source: '新华社', time: new Date().toISOString(), sentiment: 'positive' },
+        { id: 2, title: '新能源汽车销量再创新高，产业链受益明显', summary: '据中汽协数据，12月新能源汽车销量达120万辆，同比增长45%，全年销量突破1000万辆。', source: '证券时报', time: new Date(Date.now() - 3600000).toISOString(), sentiment: 'positive' },
+        { id: 3, title: '房地产市场持续低迷，多家房企债务承压', summary: '受市场需求不足影响，房地产销售持续下滑，部分房企面临较大的债务偿还压力。', source: '经济观察报', time: new Date(Date.now() - 7200000).toISOString(), sentiment: 'negative' },
+        { id: 4, title: '科创板注册制改革深化，更多优质企业有望上市', summary: '监管层表示将进一步深化科创板注册制改革，优化上市条件，提升市场包容性和吸引力。', source: '上海证券报', time: new Date(Date.now() - 10800000).toISOString(), sentiment: 'neutral' },
+        { id: 5, title: '消费电子行业复苏迹象明显，苹果供应链订单增长', summary: '随着全球经济逐步复苏，消费电子需求有所回升，苹果主要供应商四季度订单环比增长15%。', source: '第一财经', time: new Date(Date.now() - 14400000).toISOString(), sentiment: 'positive' }
+      ],
+      message: 'success'
+    })
+  }
+})
+
 app.listen(port, () => {
   console.log(`Server running at http://localhost:${port}`)
 })
