@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" 
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.goldquant.scheduler</string>
+    <key>ProgramArguments</key>
+    <array>
+        <!-- 使用项目虚拟环境的Python，路径从env_report.json读取 -->
+        <string>PYTHON_PATH_PLACEHOLDER</string>
+        <string>PROJECT_PATH_PLACEHOLDER/main.py</string>
+        <string>scheduler</string>
+    </array>
+    <key>StartInterval</key>
+    <integer>3600</integer>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <false/>
+    <key>StandardOutPath</key>
+    <string>PROJECT_PATH_PLACEHOLDER/data/logs/launchd_stdout.log</string>
+    <key>StandardErrorPath</key>
+    <string>PROJECT_PATH_PLACEHOLDER/data/logs/launchd_stderr.log</string>
+</dict>
+</plist>

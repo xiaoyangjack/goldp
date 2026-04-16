@@ -17,6 +17,10 @@ from datetime import datetime, timedelta
 import pandas as pd
 from loguru import logger
 
+from core.cache import TieredCacheManager
+from core.data_provider import GoldDataProvider
+from core.ssl_fix import SmartHttpSession
+
 # 确保能导入模块
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
@@ -38,6 +42,11 @@ class ComprehensiveFix:
     def __init__(self):
         self.data_dir = 'data'
         os.makedirs(self.data_dir, exist_ok=True)
+        
+        # 初始化数据提供者和缓存管理器
+        self.cache_manager = TieredCacheManager()
+        self.data_provider = GoldDataProvider(cache_manager=self.cache_manager)
+        
         self.results = {
             'timestamp': datetime.now().isoformat(),
             'checks': {},
@@ -80,11 +89,10 @@ class ComprehensiveFix:
                 check_result['status'] = 'needs_fix'
             
             # 尝试获取最新数据
-            if AK_AVAILABLE:
-                try:
-                    df_new = ak.spot_hist_sge(symbol="Au99.99")
-                    df_new['date'] = pd.to_datetime(df_new['date'])
-                    new_latest = df_new['date'].max()
+            try:
+                df_new = self.data_provider.get_gold_spot_daily()
+                if not df_new.empty:
+                    new_latest = df_new.index.max()
                     
                     check_result['details']['api_data'] = {
                         'count': len(df_new),
@@ -97,10 +105,12 @@ class ComprehensiveFix:
                             check_result['status'] = 'can_fix'
                     else:
                         check_result['issues'].append("API数据也不是最新的（可能是非交易日）")
-                    
-                except Exception as e:
-                    logger.warning(f"获取API数据失败: {e}")
-                    check_result['details']['api_error'] = str(e)
+                else:
+                    check_result['issues'].append("无法获取新数据")
+                
+            except Exception as e:
+                logger.warning(f"获取API数据失败: {e}")
+                check_result['details']['api_error'] = str(e)
             
         except Exception as e:
             logger.error(f"检查黄金数据实时性失败: {e}")
@@ -119,25 +129,22 @@ class ComprehensiveFix:
         }
         
         try:
-            if not AK_AVAILABLE:
-                fix_result['status'] = 'failed'
-                fix_result['actions'].append("akshare不可用，无法获取最新数据")
-                self.results['fixes']['gold_realtime'] = fix_result
-                return fix_result
-            
             # 获取最新数据
-            df = ak.spot_hist_sge(symbol="Au99.99")
-            df['date'] = pd.to_datetime(df['date'])
+            df = self.data_provider.get_gold_spot_daily()
             
-            # 保存数据
-            output_file = os.path.join(self.data_dir, 'gold_au9999_verified.csv')
-            df.to_csv(output_file, index=False, encoding='utf-8')
-            
-            fix_result['status'] = 'success'
-            fix_result['actions'].append(f"获取并保存了 {len(df)} 条数据")
-            fix_result['actions'].append(f"最新日期: {df['date'].max()}")
-            
-            logger.info("✓ 黄金数据实时性修复完成")
+            if not df.empty:
+                # 保存数据
+                output_file = os.path.join(self.data_dir, 'gold_au9999_verified.csv')
+                df.to_csv(output_file, index=False, encoding='utf-8')
+                
+                fix_result['status'] = 'success'
+                fix_result['actions'].append(f"获取并保存了 {len(df)} 条数据")
+                fix_result['actions'].append(f"最新日期: {df.index.max()}")
+                
+                logger.info("✓ 黄金数据实时性修复完成")
+            else:
+                fix_result['status'] = 'failed'
+                fix_result['actions'].append("无法获取最新数据")
             
         except Exception as e:
             logger.error(f"修复黄金数据实时性失败: {e}")
@@ -177,10 +184,11 @@ class ComprehensiveFix:
                 check_result['status'] = 'needs_fix'
             
             # 测试获取新闻
-            test_news = self._fetch_news_sample()
+            test_news = self.data_provider.get_news()
             check_result['details']['test_fetch'] = {
                 'success': len(test_news) > 0,
-                'count': len(test_news)
+                'count': len(test_news),
+                'sources': list(set(item['source'] for item in test_news))
             }
             
             if len(test_news) > 0:
@@ -247,7 +255,7 @@ class ComprehensiveFix:
         }
         
         try:
-            news_list = self._fetch_news_sample()
+            news_list = self.data_provider.get_news()
             
             if not news_list:
                 fix_result['status'] = 'failed'
@@ -260,7 +268,7 @@ class ComprehensiveFix:
                 news['sentiment'] = self._analyze_sentiment(news['title'])
             
             df = pd.DataFrame(news_list)
-            df['time'] = pd.to_datetime(df['time'], errors='coerce')
+            df['time'] = df['published_at']
             df = df.dropna(subset=['time'])
             df = df.sort_values('time', ascending=False)
             
@@ -269,7 +277,8 @@ class ComprehensiveFix:
             if os.path.exists(news_file):
                 existing_df = pd.read_csv(news_file)
                 df = pd.concat([df, existing_df], ignore_index=True)
-                df = df.drop_duplicates('id', keep='first')
+                # 使用title作为去重依据
+                df = df.drop_duplicates('title', keep='first')
             
             df.to_csv(news_file, index=False, encoding='utf-8')
             
@@ -403,6 +412,82 @@ class ComprehensiveFix:
         self.results['checks']['fine_grained'] = check_result
         return check_result
     
+    def fix_ssl_issues(self):
+        """修复SSL问题"""
+        logger.info("=== 修复SSL问题 ===")
+        fix_result = {
+            'status': 'pending',
+            'actions': []
+        }
+        
+        try:
+            # 测试SmartHttpSession
+            session = SmartHttpSession()
+            test_urls = [
+                "https://gold.eastmoney.com/",
+                "https://finance.sina.com.cn/",
+                "https://www.jin10.com/",
+                "https://gold-api.com/price/XAU"
+            ]
+            
+            results = {}
+            for url in test_urls:
+                try:
+                    response = session.smart_get(url, timeout=10)
+                    results[url] = {
+                        'status': 'success',
+                        'status_code': response.status_code
+                    }
+                    fix_result['actions'].append(f"✓ {url} 访问成功")
+                except Exception as e:
+                    results[url] = {
+                        'status': 'failed',
+                        'error': str(e)
+                    }
+                    fix_result['actions'].append(f"✗ {url} 访问失败: {e}")
+            
+            fix_result['details'] = results
+            fix_result['status'] = 'success' if any(r['status'] == 'success' for r in results.values()) else 'failed'
+            
+            logger.info("✓ SSL问题修复完成")
+            
+        except Exception as e:
+            logger.error(f"修复SSL问题失败: {e}")
+            fix_result['status'] = 'failed'
+            fix_result['actions'].append(f"错误: {e}")
+        
+        self.results['fixes']['ssl_issues'] = fix_result
+        return fix_result
+    
+    def check_international_data(self):
+        """检查国际金价API可达性"""
+        logger.info("=== 检查国际金价API可达性 ===")
+        check_result = {
+            'status': 'pending',
+            'issues': [],
+            'details': {}
+        }
+        
+        try:
+            # 测试获取国际金价
+            price_data = self.data_provider.get_gold_international_price()
+            
+            if price_data and 'price_usd' in price_data:
+                check_result['details']['international_price'] = price_data
+                check_result['status'] = 'ok'
+                logger.info(f"✓ 国际金价API可达，当前价格: {price_data['price_usd']} USD/oz")
+            else:
+                check_result['status'] = 'needs_fix'
+                check_result['issues'].append("无法获取国际金价")
+            
+        except Exception as e:
+            logger.error(f"检查国际金价API失败: {e}")
+            check_result['status'] = 'error'
+            check_result['issues'].append(str(e))
+        
+        self.results['checks']['international_data'] = check_result
+        return check_result
+    
     def generate_recommendations(self):
         """生成建议"""
         recommendations = []
@@ -437,6 +522,14 @@ class ComprehensiveFix:
             'suggestion': '考虑接入期货实时行情API获取更细粒度的数据'
         })
         
+        # 国际数据建议
+        if self.results['checks'].get('international_data', {}).get('status') != 'ok':
+            recommendations.append({
+                'category': '国际数据',
+                'priority': 'medium',
+                'suggestion': '检查网络连接，确保能访问国际金价API'
+            })
+        
         self.results['recommendations'] = recommendations
         return recommendations
     
@@ -470,8 +563,16 @@ class ComprehensiveFix:
         print("6. 检查细粒度数据...")
         self.check_fine_grained_data()
         
-        # 7. 生成建议
-        print("7. 生成建议...")
+        # 7. 检查国际金价API
+        print("7. 检查国际金价API...")
+        self.check_international_data()
+        
+        # 8. 修复SSL问题
+        print("8. 修复SSL问题...")
+        self.fix_ssl_issues()
+        
+        # 9. 生成建议
+        print("9. 生成建议...")
         self.generate_recommendations()
         
         # 保存结果

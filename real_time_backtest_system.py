@@ -18,6 +18,9 @@ import pandas as pd
 import numpy as np
 from loguru import logger
 
+from core.cache import TieredCacheManager
+from core.data_provider import GoldDataProvider
+
 # 配置日志
 os.makedirs('logs', exist_ok=True)
 logger.add('logs/real_time_system.log', rotation='10 MB', retention='7 days')
@@ -43,47 +46,37 @@ class RealTimeBacktestSystem:
             'Factor': {'lookback': 5}
         }
         
+        # 初始化数据提供者和缓存管理器
+        self.cache_manager = TieredCacheManager()
+        self.data_provider = GoldDataProvider(cache_manager=self.cache_manager)
+        
         # 缓存状态
         self.cache_status = {}
         self.last_update = {}
     
     def load_gold_data(self, force_refresh=False):
         """加载黄金数据（带缓存）"""
-        filepath = os.path.join(self.data_dir, 'gold_au9999_verified.csv')
+        # 使用新的数据提供者获取数据
+        df = self.data_provider.get_gold_spot_daily()
         
-        # 检查缓存
-        if not force_refresh and os.path.exists(filepath):
-            mtime = datetime.fromtimestamp(os.path.getmtime(filepath))
-            age = (datetime.now() - mtime).total_seconds() / 60
-            
-            if age < 60:  # 1小时内的缓存
-                logger.info(f"使用缓存数据（{age:.1f}分钟前）")
-                df = pd.read_csv(filepath)
-                df['date'] = pd.to_datetime(df['date'])
-                self.cache_status['gold_data'] = 'cached'
-                self.last_update['gold_data'] = mtime.isoformat()
-                return df
-        
-        # 尝试刷新数据
-        try:
-            import akshare as ak
-            df = ak.spot_hist_sge(symbol="Au99.99")
-            df['date'] = pd.to_datetime(df['date'])
-            df = df.sort_values('date')
+        if not df.empty:
+            # 保存到本地文件作为兜底
+            filepath = os.path.join(self.data_dir, 'gold_au9999_verified.csv')
             df.to_csv(filepath, index=False, encoding='utf-8')
             
-            logger.info(f"数据已刷新，最新日期: {df['date'].max()}")
+            logger.info(f"数据已获取，最新日期: {df.index[-1].date() if len(df) > 0 else '无'}")
             self.cache_status['gold_data'] = 'refreshed'
             self.last_update['gold_data'] = datetime.now().isoformat()
             return df
-        except Exception as e:
-            logger.warning(f"刷新数据失败，使用缓存: {e}")
+        else:
+            # 兜底：使用本地文件
+            filepath = os.path.join(self.data_dir, 'gold_au9999_verified.csv')
             if os.path.exists(filepath):
                 df = pd.read_csv(filepath)
                 df['date'] = pd.to_datetime(df['date'])
                 self.cache_status['gold_data'] = 'fallback'
                 return df
-            raise
+            raise Exception("无法获取黄金数据")
     
     def calculate_indicators(self, df):
         """计算技术指标"""
@@ -211,6 +204,9 @@ class RealTimeBacktestSystem:
         """获取当前市场状态"""
         try:
             df = self.load_gold_data(force_refresh=False)
+            if df.empty:
+                return {'error': 'No gold data available'}
+            
             df = self.calculate_indicators(df)
             latest = df.iloc[-1]
             
@@ -223,10 +219,27 @@ class RealTimeBacktestSystem:
                 except:
                     signals[strategy] = 'error'
             
+            # 获取国际金价
+            international_price = self.data_provider.get_gold_international_price()
+            
+            # 获取新闻数量
+            news = self.data_provider.get_news()
+            news_count = len(news)
+            
+            # 获取缓存报告
+            cache_report = self.cache_manager.cache_status_report()
+            
+            # 检查是否有date列或使用index
+            date_value = None
+            if 'date' in df.columns:
+                date_value = latest['date'].isoformat()
+            elif isinstance(df.index, pd.DatetimeIndex):
+                date_value = df.index[-1].isoformat()
+            
             return {
                 'timestamp': datetime.now().isoformat(),
                 'price': float(latest['close']),
-                'date': latest['date'].isoformat(),
+                'date': date_value,
                 'indicators': {
                     'MA5': float(latest['MA5']) if pd.notna(latest['MA5']) else None,
                     'MA20': float(latest['MA20']) if pd.notna(latest['MA20']) else None,
@@ -236,7 +249,11 @@ class RealTimeBacktestSystem:
                 'signals': signals,
                 'current_strategy': self.current_strategy,
                 'cache_status': self.cache_status,
-                'last_update': self.last_update
+                'last_update': self.last_update,
+                'data_source': 'akshare/gold-api/freegoldapi',  # 实际使用的数据源
+                'international_price_usd': international_price.get('price_usd', 0),  # 国际金价（美元/盎司）
+                'news_count': news_count,  # 当前新闻条数
+                'cache_report': cache_report  # 各缓存状态
             }
         except Exception as e:
             logger.error(f"获取市场状态失败: {e}")
@@ -284,6 +301,13 @@ class RealTimeBacktestSystem:
                 try:
                     status = self.get_current_market_status()
                     logger.info(f"监控更新: {json.dumps(status, ensure_ascii=False)}")
+                    
+                    # 打印最近3条黄金新闻
+                    print("=== 最新黄金新闻（最近3条）===")
+                    news = self.data_provider.get_news()
+                    for item in news[:3]:
+                        print(f"[{item['published_at'].strftime('%Y-%m-%d %H:%M:%S')}] {item['title']} [{item['source']}]")
+                    print()
                     
                     # 保存监控记录
                     monitor_file = os.path.join(self.results_dir, 'monitor_log.jsonl')
