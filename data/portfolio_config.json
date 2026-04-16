@@ -1,0 +1,14 @@
+{
+  "cash": 70001.07107336853,
+  "initial_capital": 100000,
+  "total_value": 70001.07107336853,
+  "trade_count": 222,
+  "positions": {
+    "AU9999": {
+      "quantity": 1.9864159631865923e-66,
+      "entry_price": 1045.68,
+      "entry_time": "2026-04-14T18:11:56.103904"
+    }
+  },
+  "last_update": "2026-04-16T07:37:45.581775"
+}

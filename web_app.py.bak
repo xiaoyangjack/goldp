@@ -1,0 +1,442 @@
+"""
+黄金量化 Web应用
+基于Flask的Web界面，整合所有量化功能
+
+功能:
+- 实时行情显示
+- 策略信号展示
+- 模拟盘控制台
+- 数据获取与验证
+- 回测报告查看
+"""
+import os
+import sys
+from datetime import datetime
+from flask import Flask, render_template, jsonify, request
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+app = Flask(__name__)
+app.config['SECRET_KEY'] = 'gold_quant_secret_key_2024'
+app.config['JSON_AS_ASCII'] = False
+
+
+def get_market_status():
+    """获取当前市场状态"""
+    data_path = 'data/gold_au9999_verified.csv'
+    if not os.path.exists(data_path):
+        data_path = 'data/gold_au9999_with_atr.csv'
+
+    if not os.path.exists(data_path):
+        return {
+            'has_data': False,
+            'current_price': 0,
+            'atr': 0,
+            'ma10': 0,
+            'ma30': 0,
+            'trend': 'UNKNOWN',
+            'signal': 'NODATA',
+            'strategy_status': 'PAUSE'
+        }
+
+    import pandas as pd
+    df = pd.read_csv(data_path)
+    df['date'] = pd.to_datetime(df['date'])
+
+    if 'close' not in df.columns:
+        return {'has_data': False, 'current_price': 0}
+
+    current_price = df['close'].iloc[-1]
+    atr = df['atr'].iloc[-1] if 'atr' in df.columns else 0
+
+    ma10 = df['close'].tail(10).mean() if len(df) >= 10 else 0
+    ma30 = df['close'].tail(30).mean() if len(df) >= 30 else 0
+
+    ma_diff = ma10 - ma30
+    if ma_diff > 0.5:
+        trend = 'BULLISH'
+        signal = 'BUY'
+    elif ma_diff < -0.5:
+        trend = 'BEARISH'
+        signal = 'SELL'
+    else:
+        trend = 'FLAT'
+        signal = 'WATCH'
+
+    atr_pause = atr > 35 if atr > 0 else False
+    strategy_status = 'PAUSE' if atr_pause else 'ACTIVE'
+
+    return {
+        'has_data': True,
+        'current_price': round(current_price, 2),
+        'atr': round(atr, 2) if atr else 0,
+        'ma10': round(ma10, 2),
+        'ma30': round(ma30, 2),
+        'trend': trend,
+        'signal': signal,
+        'strategy_status': strategy_status,
+        'date': str(df['date'].iloc[-1].date())
+    }
+
+
+def get_portfolio():
+    """获取模拟盘持仓状态"""
+    return {
+        'position': 0,
+        'cash': 70000.0,
+        'total_value': 70000.0,
+        'initial_capital': 100000.0,
+        'trade_count': 0,
+        'win_rate': 0
+    }
+
+
+def get_reports():
+    """获取回测报告列表"""
+    reports = []
+    report_dir = 'backtest'
+
+    report_titles = {
+        'fixed_grid_report.md': '固定网格策略回测报告',
+        'ma_filter_backtest_report.md': 'MA过滤策略回测报告',
+        'ma_filter_risk_report.md': 'MA过滤+风控策略回测报告',
+        'stress_test_report.md': '压力测试报告',
+        'atr_dynamic_grid_report.md': 'ATR动态网格策略回测报告'
+    }
+
+    if os.path.exists(report_dir):
+        for f in os.listdir(report_dir):
+            if f.endswith('.md'):
+                reports.append({
+                    'name': f,
+                    'path': os.path.join(report_dir, f),
+                    'title': report_titles.get(f, f.replace('.md', ''))
+                })
+
+    return reports
+
+
+@app.route('/')
+def index():
+    return render_template('index.html')
+
+
+@app.route('/api/market_data')
+def market_data():
+    status = get_market_status()
+    return jsonify(status)
+
+
+@app.route('/api/signal')
+def signal():
+    status = get_market_status()
+    return jsonify({
+        'signal': status.get('signal', 'WATCH'),
+        'trend': status.get('trend', 'UNKNOWN'),
+        'reason': get_signal_reason(status)
+    })
+
+
+def get_signal_reason(status):
+    if not status.get('has_data'):
+        return '无数据'
+
+    if status.get('strategy_status') == 'PAUSE':
+        return f"策略暂停: ATR={status.get('atr')} > 35"
+
+    signal = status.get('signal', 'WATCH')
+    trend = status.get('trend', 'UNKNOWN')
+
+    if signal == 'BUY':
+        return f"多头趋势({trend})，建议买入网格"
+    elif signal == 'SELL':
+        return f"空头趋势({trend})，建议卖出网格"
+    else:
+        return f"横盘整理({trend})，建议观望"
+
+
+@app.route('/api/portfolio')
+def portfolio():
+    pf = get_portfolio()
+    return jsonify(pf)
+
+
+@app.route('/api/fetch_data', methods=['POST'])
+def fetch_data():
+    try:
+        from data_fetcher_verified import fetch_sge_data, DataValidator, save_data
+
+        print("开始获取数据...")
+        df = fetch_sge_data(start_date='20190101')
+
+        if len(df) > 0:
+            save_data(df, 'data/gold_au9999_verified.csv')
+
+            validator = DataValidator()
+            results = validator.validate_all(df)
+
+            return jsonify({
+                'success': True,
+                'message': f'成功获取{len(df)}条数据',
+                'data_count': len(df),
+                'validation': {
+                    'completeness': results['completeness']['passed'],
+                    'consistency': results['consistency']['passed'],
+                    'reasonableness': results['reasonableness']['passed']
+                }
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'message': '获取数据失败'
+            })
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': f'错误: {str(e)}'
+        })
+
+
+@app.route('/api/reports')
+def reports():
+    reports_list = get_reports()
+    return jsonify(reports_list)
+
+
+@app.route('/api/report/<name>')
+def report(name):
+    report_path = os.path.join('backtest', name)
+    if os.path.exists(report_path):
+        with open(report_path, 'r', encoding='utf-8') as f:
+            content = f.read()
+        return jsonify({
+            'name': name,
+            'content': content
+        })
+    return jsonify({'error': 'Report not found'}), 404
+
+
+@app.route('/api/status')
+def status():
+    data_path = 'data/gold_au9999_verified.csv'
+    has_verified_data = os.path.exists(data_path)
+
+    data_path2 = 'data/gold_au9999_with_atr.csv'
+    has_original_data = os.path.exists(data_path2)
+
+    validation_result = {
+        'has_data': False,
+        'data_count': 0,
+        'date_range': '',
+        'completeness': False,
+        'consistency': False,
+        'reasonableness': False,
+        'is_valid': False
+    }
+
+    if has_verified_data:
+        try:
+            import pandas as pd
+            df = pd.read_csv(data_path)
+            df['date'] = pd.to_datetime(df['date'])
+
+            validation_result['has_data'] = True
+            validation_result['data_count'] = len(df)
+            validation_result['date_range'] = f"{df['date'].min().strftime('%Y-%m-%d')} ~ {df['date'].max().strftime('%Y-%m-%d')}"
+
+            if len(df) >= 1000:
+                validation_result['completeness'] = True
+
+            if 'close' in df.columns and df['close'].notna().all():
+                validation_result['consistency'] = True
+
+            if df['close'].min() > 100 and df['close'].max() < 1000:
+                validation_result['reasonableness'] = True
+
+            validation_result['is_valid'] = (
+                validation_result['completeness'] and
+                validation_result['consistency'] and
+                validation_result['reasonableness']
+            )
+        except Exception as e:
+            print(f"数据验证失败: {e}")
+
+    return jsonify({
+        'has_verified_data': has_verified_data,
+        'has_original_data': has_original_data,
+        'data_source': 'akshare SGE Au99.99' if has_verified_data else 'unknown',
+        'last_update': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+        'validation': validation_result
+    })
+
+
+@app.route('/api/chart/price')
+def chart_price():
+    """获取价格走势图数据"""
+    data_path = 'data/gold_au9999_verified.csv'
+    if not os.path.exists(data_path):
+        data_path = 'data/gold_au9999_with_atr.csv'
+
+    if not os.path.exists(data_path):
+        return jsonify({'error': 'No data'}), 404
+
+    import pandas as pd
+    df = pd.read_csv(data_path)
+    df['date'] = pd.to_datetime(df['date'])
+    df = df.sort_values('date')
+
+    df['ma10'] = df['close'].rolling(window=10).mean()
+    df['ma30'] = df['close'].rolling(window=30).mean()
+
+    labels = df['date'].dt.strftime('%Y-%m-%d').tolist()
+    prices = df['close'].tolist()
+    ma10 = df['ma10'].fillna(0).tolist()
+    ma30 = df['ma30'].fillna(0).tolist()
+
+    return jsonify({
+        'labels': labels[-500:],
+        'datasets': {
+            'price': prices[-500:],
+            'ma10': ma10[-500:],
+            'ma30': ma30[-500:]
+        }
+    })
+
+
+@app.route('/api/chart/return')
+def chart_return():
+    """获取收益率曲线数据"""
+    data_path = 'data/gold_au9999_verified.csv'
+    if not os.path.exists(data_path):
+        data_path = 'data/gold_au9999_with_atr.csv'
+
+    if not os.path.exists(data_path):
+        return jsonify({'error': 'No data'}), 404
+
+    import pandas as pd
+    df = pd.read_csv(data_path)
+    df['date'] = pd.to_datetime(df['date'])
+    df = df.sort_values('date')
+
+    initial_price = df['close'].iloc[0]
+    df['return'] = (df['close'] / initial_price - 1) * 100
+
+    labels = df['date'].dt.strftime('%Y-%m-%d').tolist()
+    returns = df['return'].tolist()
+
+    return jsonify({
+        'labels': labels[-500:],
+        'returns': returns[-500:],
+        'final_return': round(returns[-1], 2) if returns else 0
+    })
+
+
+@app.route('/api/chart/drawdown')
+def chart_drawdown():
+    """获取回撤数据"""
+    data_path = 'data/gold_au9999_verified.csv'
+    if not os.path.exists(data_path):
+        data_path = 'data/gold_au9999_with_atr.csv'
+
+    if not os.path.exists(data_path):
+        return jsonify({'error': 'No data'}), 404
+
+    import pandas as pd
+    df = pd.read_csv(data_path)
+    df['date'] = pd.to_datetime(df['date'])
+    df = df.sort_values('date')
+
+    df['cummax'] = df['close'].cummax()
+    df['drawdown'] = (df['close'] / df['cummax'] - 1) * 100
+
+    labels = df['date'].dt.strftime('%Y-%m-%d').tolist()
+    drawdowns = df['drawdown'].tolist()
+    max_drawdown = round(df['drawdown'].min(), 2)
+
+    return jsonify({
+        'labels': labels[-500:],
+        'drawdowns': drawdowns[-500:],
+        'max_drawdown': max_drawdown
+    })
+
+
+@app.route('/api/chart/trades')
+def chart_trades():
+    """获取交易统计数据"""
+    trades_path = 'backtest/ma_filter_risk_trades.csv'
+    if not os.path.exists(trades_path):
+        return jsonify({
+            'total_trades': 0,
+            'buys': 0,
+            'sells': 0,
+            'wins': 0,
+            'losses': 0
+        })
+
+    import pandas as pd
+    df = pd.read_csv(trades_path)
+
+    buys = len(df[df['type'] == 'BUY']) if 'type' in df.columns else 0
+    sells = len(df[df['type'] == 'SELL']) if 'type' in df.columns else 0
+
+    return jsonify({
+        'total_trades': len(df),
+        'buys': buys,
+        'sells': sells,
+        'wins': 0,
+        'losses': 0
+    })
+
+
+@app.route('/api/minute_data')
+def minute_data():
+    """获取分时数据"""
+    try:
+        import akshare as ak
+        import pandas as pd
+        from datetime import datetime, timedelta
+
+        symbol = "SGE_Au99.99"
+        today = datetime.now().strftime('%Y%m%d')
+
+        try:
+            df = ak.sge_price_hist(symbol=symbol, start_date=today, end_date=today)
+            if df is not None and len(df) > 0:
+                df = df.tail(60)
+                return jsonify({
+                    'success': True,
+                    'has_data': True,
+                    'data': df.to_dict(orient='records'),
+                    'update_time': datetime.now().strftime('%H:%M:%S')
+                })
+        except Exception as e:
+            print(f"分时数据获取失败: {e}")
+
+        return jsonify({
+            'success': False,
+            'has_data': False,
+            'message': '暂无分时数据（仅交易时段可用）',
+            'update_time': datetime.now().strftime('%H:%M:%S')
+        })
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'has_data': False,
+            'message': f'获取失败: {str(e)}',
+            'update_time': datetime.now().strftime('%H:%M:%S')
+        })
+
+
+def main():
+    print("=" * 60)
+    print("黄金量化 Web应用")
+    print("=" * 60)
+    print("启动服务: http://127.0.0.1:5555")
+    print("按 Ctrl+C 停止服务")
+    print("=" * 60)
+
+    app.run(host='0.0.0.0', port=5555, debug=False)
+
+
+if __name__ == '__main__':
+    main()

@@ -1,0 +1,1568 @@
+
+&lt;!DOCTYPE html&gt;
+&lt;html lang="zh-CN"&gt;
+&lt;head&gt;
+    &lt;meta charset="UTF-8"&gt;
+    &lt;meta name="viewport" content="width=device-width, initial-scale=1.0"&gt;
+    &lt;title&gt;黄金量化交易系统&lt;/title&gt;
+    &lt;link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet"&gt;
+    &lt;link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet"&gt;
+    &lt;script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"&gt;&lt;/script&gt;
+    &lt;script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"&gt;&lt;/script&gt;
+    &lt;script src="https://cdn.jsdelivr.net/npm/plotly.js@2.32.0/dist/plotly.min.js"&gt;&lt;/script&gt;
+    &lt;style&gt;
+        :root {
+            --primary-gold: #ffd700;
+            --dark-bg: #0a0a0f;
+            --card-bg: #1a1a2e;
+            --card-hover: #252545;
+            --text-primary: #ffffff;
+            --text-secondary: #a0a0b0;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            background: var(--dark-bg);
+            color: var(--text-primary);
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            min-height: 100vh;
+        }
+        
+        .sidebar {
+            position: fixed;
+            left: 0;
+            top: 0;
+            width: 260px;
+            height: 100vh;
+            background: linear-gradient(180deg, #1a1a2e 0%, #0f0f1a 100%);
+            border-right: 1px solid rgba(255, 215, 0, 0.1);
+            padding: 20px 0;
+            z-index: 1000;
+            overflow-y: auto;
+        }
+        
+        .sidebar-header {
+            padding: 0 20px 20px;
+            border-bottom: 1px solid rgba(255, 215, 0, 0.1);
+            margin-bottom: 20px;
+        }
+        
+        .sidebar-title {
+            font-size: 1.4rem;
+            font-weight: 700;
+            color: var(--primary-gold);
+            margin-bottom: 5px;
+        }
+        
+        .sidebar-subtitle {
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+        }
+        
+        .nav-menu {
+            list-style: none;
+            padding: 0 12px;
+        }
+        
+        .nav-item {
+            margin-bottom: 4px;
+        }
+        
+        .nav-link {
+            display: flex;
+            align-items: center;
+            padding: 12px 16px;
+            color: var(--text-secondary);
+            text-decoration: none;
+            border-radius: 10px;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+        
+        .nav-link:hover {
+            background: rgba(255, 215, 0, 0.1);
+            color: var(--text-primary);
+        }
+        
+        .nav-link.active {
+            background: linear-gradient(135deg, rgba(255, 215, 0, 0.2) 0%, rgba(255, 215, 0, 0.05) 100%);
+            color: var(--primary-gold);
+            border: 1px solid rgba(255, 215, 0, 0.3);
+        }
+        
+        .nav-link i {
+            width: 24px;
+            margin-right: 12px;
+            font-size: 1.1rem;
+        }
+        
+        .main-content {
+            margin-left: 260px;
+            padding: 30px;
+            min-height: 100vh;
+        }
+        
+        .page-header {
+            margin-bottom: 30px;
+        }
+        
+        .page-title {
+            font-size: 2rem;
+            font-weight: 700;
+            margin-bottom: 8px;
+        }
+        
+        .page-description {
+            color: var(--text-secondary);
+            font-size: 1rem;
+        }
+        
+        .card {
+            background: var(--card-bg);
+            border: 1px solid rgba(255, 215, 0, 0.1);
+            border-radius: 16px;
+            margin-bottom: 24px;
+            transition: all 0.3s ease;
+        }
+        
+        .card:hover {
+            border-color: rgba(255, 215, 0, 0.2);
+            transform: translateY(-2px);
+        }
+        
+        .card-header {
+            background: transparent;
+            border-bottom: 1px solid rgba(255, 215, 0, 0.1);
+            padding: 20px 24px;
+            border-radius: 16px 16px 0 0 !important;
+        }
+        
+        .card-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin: 0;
+            color: var(--text-primary);
+        }
+        
+        .card-body {
+            padding: 24px;
+        }
+        
+        .stat-card {
+            background: linear-gradient(135deg, var(--card-bg) 0%, #151528 100%);
+            border: 1px solid rgba(255, 215, 0, 0.15);
+            border-radius: 16px;
+            padding: 24px;
+            transition: all 0.3s ease;
+        }
+        
+        .stat-card:hover {
+            border-color: rgba(255, 215, 0, 0.3);
+            transform: translateY(-4px);
+        }
+        
+        .stat-label {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .stat-value {
+            font-size: 2rem;
+            font-weight: 700;
+            color: var(--primary-gold);
+        }
+        
+        .stat-value.positive {
+            color: #2ecc71;
+        }
+        
+        .stat-value.negative {
+            color: #e74c3c;
+        }
+        
+        .signal-badge {
+            display: inline-block;
+            padding: 8px 20px;
+            border-radius: 30px;
+            font-weight: 600;
+            font-size: 1.1rem;
+        }
+        
+        .signal-badge.buy {
+            background: linear-gradient(135deg, #2ecc71 0%, #27ae60 100%);
+            color: white;
+        }
+        
+        .signal-badge.sell {
+            background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
+            color: white;
+        }
+        
+        .signal-badge.watch {
+            background: linear-gradient(135deg, #f39c12 0%, #e67e22 100%);
+            color: white;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #ffd700 0%, #ffb700 100%);
+            border: none;
+            color: #000;
+            font-weight: 600;
+            padding: 10px 24px;
+            border-radius: 10px;
+            transition: all 0.3s ease;
+        }
+        
+        .btn-primary:hover {
+            background: linear-gradient(135deg, #ffea00 0%, #ffc700 100%);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(255, 215, 0, 0.3);
+        }
+        
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 215, 0, 0.2);
+            color: var(--text-primary);
+            font-weight: 500;
+            padding: 10px 24px;
+            border-radius: 10px;
+            transition: all 0.3s ease;
+        }
+        
+        .btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.15);
+            border-color: rgba(255, 215, 0, 0.4);
+        }
+        
+        .form-control, .form-select {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 215, 0, 0.2);
+            color: var(--text-primary);
+            border-radius: 8px;
+            padding: 10px 14px;
+        }
+        
+        .form-control:focus, .form-select:focus {
+            background: rgba(255, 255, 255, 0.08);
+            border-color: var(--primary-gold);
+            box-shadow: 0 0 0 0.25rem rgba(255, 215, 0, 0.15);
+            color: var(--text-primary);
+        }
+        
+        .form-label {
+            color: var(--text-secondary);
+            font-weight: 500;
+            margin-bottom: 8px;
+        }
+        
+        .table {
+            color: var(--text-primary);
+            margin-bottom: 0;
+        }
+        
+        .table thead th {
+            border-bottom: 1px solid rgba(255, 215, 0, 0.2);
+            color: var(--text-secondary);
+            font-weight: 600;
+            text-transform: uppercase;
+            font-size: 0.8rem;
+            letter-spacing: 0.5px;
+        }
+        
+        .table tbody td {
+            border-bottom: 1px solid rgba(255, 215, 0, 0.1);
+            vertical-align: middle;
+        }
+        
+        .table tbody tr:hover {
+            background: rgba(255, 215, 0, 0.05);
+        }
+        
+        .chart-container {
+            position: relative;
+            height: 350px;
+            width: 100%;
+        }
+        
+        .page-section {
+            display: none;
+        }
+        
+        .page-section.active {
+            display: block;
+            animation: fadeIn 0.3s ease;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .status-dot {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 8px;
+            animation: pulse 2s infinite;
+        }
+        
+        .status-dot.active {
+            background: #2ecc71;
+        }
+        
+        .status-dot.paused {
+            background: #f39c12;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        
+        .data-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 12px 0;
+            border-bottom: 1px solid rgba(255, 215, 0, 0.1);
+        }
+        
+        .data-row:last-child {
+            border-bottom: none;
+        }
+        
+        .data-label {
+            color: var(--text-secondary);
+        }
+        
+        .data-value {
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+        
+        .help-section {
+            background: rgba(255, 215, 0, 0.05);
+            border-left: 3px solid var(--primary-gold);
+            padding: 20px;
+            border-radius: 0 10px 10px 0;
+            margin-bottom: 20px;
+        }
+        
+        .help-section h4 {
+            color: var(--primary-gold);
+            margin-bottom: 12px;
+            font-size: 1.1rem;
+        }
+        
+        .quick-actions {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+            margin-bottom: 24px;
+        }
+        
+        @media (max-width: 992px) {
+            .sidebar {
+                width: 100%;
+                height: auto;
+                position: relative;
+            }
+            
+            .main-content {
+                margin-left: 0;
+            }
+        }
+    &lt;/style&gt;
+&lt;/head&gt;
+&lt;body&gt;
+    &lt;!-- 侧边栏导航 --&gt;
+    &lt;nav class="sidebar"&gt;
+        &lt;div class="sidebar-header"&gt;
+            &lt;div class="sidebar-title"&gt;&lt;i class="bi bi-gem"&gt;&lt;/i&gt; 黄金量化&lt;/div&gt;
+            &lt;div class="sidebar-subtitle"&gt;Gold Quant Trading System&lt;/div&gt;
+        &lt;/div&gt;
+        
+        &lt;ul class="nav-menu"&gt;
+            &lt;li class="nav-item"&gt;
+                &lt;a class="nav-link active" data-page="dashboard"&gt;
+                    &lt;i class="bi bi-speedometer2"&gt;&lt;/i&gt;
+                    &lt;span&gt;仪表盘&lt;/span&gt;
+                &lt;/a&gt;
+            &lt;/li&gt;
+            &lt;li class="nav-item"&gt;
+                &lt;a class="nav-link" data-page="market"&gt;
+                    &lt;i class="bi bi-graph-up-arrow"&gt;&lt;/i&gt;
+                    &lt;span&gt;实时行情&lt;/span&gt;
+                &lt;/a&gt;
+            &lt;/li&gt;
+            &lt;li class="nav-item"&gt;
+                &lt;a class="nav-link" data-page="signals"&gt;
+                    &lt;i class="bi bi-lightning-charge"&gt;&lt;/i&gt;
+                    &lt;span&gt;交易信号&lt;/span&gt;
+                &lt;/a&gt;
+            &lt;/li&gt;
+            &lt;li class="nav-item"&gt;
+                &lt;a class="nav-link" data-page="portfolio"&gt;
+                    &lt;i class="bi bi-briefcase"&gt;&lt;/i&gt;
+                    &lt;span&gt;模拟持仓&lt;/span&gt;
+                &lt;/a&gt;
+            &lt;/li&gt;
+            &lt;li class="nav-item"&gt;
+                &lt;a class="nav-link" data-page="backtest"&gt;
+                    &lt;i class="bi bi-flask"&gt;&lt;/i&gt;
+                    &lt;span&gt;回测分析&lt;/span&gt;
+                &lt;/a&gt;
+            &lt;/li&gt;
+            &lt;li class="nav-item"&gt;
+                &lt;a class="nav-link" data-page="factors"&gt;
+                    &lt;i class="bi bi-microscope"&gt;&lt;/i&gt;
+                    &lt;span&gt;因子分析&lt;/span&gt;
+                &lt;/a&gt;
+            &lt;/li&gt;
+            &lt;li class="nav-item"&gt;
+                &lt;a class="nav-link" data-page="decision"&gt;
+                    &lt;i class="bi bi-target"&gt;&lt;/i&gt;
+                    &lt;span&gt;投资决策&lt;/span&gt;
+                &lt;/a&gt;
+            &lt;/li&gt;
+            &lt;li class="nav-item"&gt;
+                &lt;a class="nav-link" data-page="data"&gt;
+                    &lt;i class="bi bi-database"&gt;&lt;/i&gt;
+                    &lt;span&gt;数据管理&lt;/span&gt;
+                &lt;/a&gt;
+            &lt;/li&gt;
+            &lt;li class="nav-item"&gt;
+                &lt;a class="nav-link" data-page="settings"&gt;
+                    &lt;i class="bi bi-gear"&gt;&lt;/i&gt;
+                    &lt;span&gt;策略设置&lt;/span&gt;
+                &lt;/a&gt;
+            &lt;/li&gt;
+            &lt;li class="nav-item"&gt;
+                &lt;a class="nav-link" data-page="help"&gt;
+                    &lt;i class="bi bi-question-circle"&gt;&lt;/i&gt;
+                    &lt;span&gt;使用帮助&lt;/span&gt;
+                &lt;/a&gt;
+            &lt;/li&gt;
+        &lt;/ul&gt;
+    &lt;/nav&gt;
+
+    &lt;!-- 主内容区 --&gt;
+    &lt;main class="main-content"&gt;
+        &lt;!-- 仪表盘 --&gt;
+        &lt;section class="page-section active" id="page-dashboard"&gt;
+            &lt;div class="page-header"&gt;
+                &lt;h1 class="page-title"&gt;仪表盘&lt;/h1&gt;
+                &lt;p class="page-description"&gt;系统概览与关键指标&lt;/p&gt;
+            &lt;/div&gt;
+            
+            &lt;div class="quick-actions"&gt;
+                &lt;button class="btn btn-primary" onclick="fetchData()"&gt;
+                    &lt;i class="bi bi-arrow-repeat"&gt;&lt;/i&gt; 获取最新数据
+                &lt;/button&gt;
+                &lt;button class="btn btn-secondary" onclick="refreshAll()"&gt;
+                    &lt;i class="bi bi-arrow-clockwise"&gt;&lt;/i&gt; 刷新全部
+                &lt;/button&gt;
+            &lt;/div&gt;
+            
+            &lt;div class="row g-4 mb-4"&gt;
+                &lt;div class="col-md-3"&gt;
+                    &lt;div class="stat-card"&gt;
+                        &lt;div class="stat-label"&gt;当前金价&lt;/div&gt;
+                        &lt;div class="stat-value" id="dash-price"&gt;--&lt;/div&gt;
+                    &lt;/div&gt;
+                &lt;/div&gt;
+                &lt;div class="col-md-3"&gt;
+                    &lt;div class="stat-card"&gt;
+                        &lt;div class="stat-label"&gt;账户总价值&lt;/div&gt;
+                        &lt;div class="stat-value" id="dash-value"&gt;--&lt;/div&gt;
+                    &lt;/div&gt;
+                &lt;/div&gt;
+                &lt;div class="col-md-3"&gt;
+                    &lt;div class="stat-card"&gt;
+                        &lt;div class="stat-label"&gt;总盈亏&lt;/div&gt;
+                        &lt;div class="stat-value" id="dash-pnl"&gt;--&lt;/div&gt;
+                    &lt;/div&gt;
+                &lt;/div&gt;
+                &lt;div class="col-md-3"&gt;
+                    &lt;div class="stat-card"&gt;
+                        &lt;div class="stat-label"&gt;当前信号&lt;/div&gt;
+                        &lt;div class="signal-badge watch" id="dash-signal"&gt;--&lt;/div&gt;
+                    &lt;/div&gt;
+                &lt;/div&gt;
+            &lt;/div&gt;
+            
+            &lt;div class="row g-4"&gt;
+                &lt;div class="col-lg-8"&gt;
+                    &lt;div class="card"&gt;
+                        &lt;div class="card-header"&gt;
+                            &lt;h5 class="card-title"&gt;&lt;i class="bi bi-graph-up"&gt;&lt;/i&gt; 价格走势&lt;/h5&gt;
+                        &lt;/div&gt;
+                        &lt;div class="card-body"&gt;
+                            &lt;div class="chart-container"&gt;
+                                &lt;canvas id="dashPriceChart"&gt;&lt;/canvas&gt;
+                            &lt;/div&gt;
+                        &lt;/div&gt;
+                    &lt;/div&gt;
+                &lt;/div&gt;
+                &lt;div class="col-lg-4"&gt;
+                    &lt;div class="card"&gt;
+                        &lt;div class="card-header"&gt;
+                            &lt;h5 class="card-title"&gt;&lt;i class="bi bi-info-circle"&gt;&lt;/i&gt; 系统状态&lt;/h5&gt;
+                        &lt;/div&gt;
+                        &lt;div class="card-body"&gt;
+                            &lt;div class="data-row"&gt;
+                                &lt;span class="data-label"&gt;策略状态&lt;/span&gt;
+                                &lt;span class="data-value" id="dash-strategy-status"&gt;--&lt;/span&gt;
+                            &lt;/div&gt;
+                            &lt;div class="data-row"&gt;
+                                &lt;span class="data-label"&gt;数据状态&lt;/span&gt;
+                                &lt;span class="data-value" id="dash-data-status"&gt;--&lt;/span&gt;
+                            &lt;/div&gt;
+                            &lt;div class="data-row"&gt;
+                                &lt;span class="data-label"&gt;数据量&lt;/span&gt;
+                                &lt;span class="data-value" id="dash-data-count"&gt;--&lt;/span&gt;
+                            &lt;/div&gt;
+                            &lt;div class="data-row"&gt;
+                                &lt;span class="data-label"&gt;最后更新&lt;/span&gt;
+                                &lt;span class="data-value" id="dash-last-update"&gt;--&lt;/span&gt;
+                            &lt;/div&gt;
+                            &lt;div class="data-row"&gt;
+                                &lt;span class="data-label"&gt;交易次数&lt;/span&gt;
+                                &lt;span class="data-value" id="dash-trade-count"&gt;--&lt;/span&gt;
+                            &lt;/div&gt;
+                        &lt;/div&gt;
+                    &lt;/div&gt;
+                &lt;/div&gt;
+            &lt;/div&gt;
+        &lt;/section&gt;
+
+        &lt;!-- 实时行情 --&gt;
+        &lt;section class="page-section" id="page-market"&gt;
+            &lt;div class="page-header"&gt;
+                &lt;h1 class="page-title"&gt;实时行情&lt;/h1&gt;
+                &lt;p class="page-description"&gt;黄金价格与技术指标&lt;/p&gt;
+            &lt;/div&gt;
+            
+            &lt;div class="row g-4"&gt;
+                &lt;div class="col-lg-4"&gt;
+                    &lt;div class="card"&gt;
+                        &lt;div class="card-header"&gt;
+                            &lt;h5 class="card-title"&gt;&lt;i class="bi bi-currency-exchange"&gt;&lt;/i&gt; 价格信息&lt;/h5&gt;
+                        &lt;/div&gt;
+                        &lt;div class="card-body"&gt;
+                            &lt;div class="data-row"&gt;
+                                &lt;span class="data-label"&gt;当前价格&lt;/span&gt;
+                                &lt;span class="data-value" id="market-price"&gt;--&lt;/span&gt;
+                            &lt;/div&gt;
+                            &lt;div class="data-row"&gt;
+                                &lt;span class="data-label"&gt;MA(10)&lt;/span&gt;
+                                &lt;span class="data-value" id="market-ma10"&gt;--&lt;/span&gt;
+                            &lt;/div&gt;
+                            &lt;div class="data-row"&gt;
+                                &lt;span class="data-label"&gt;MA(30)&lt;/span&gt;
+                                &lt;span class="data-value" id="market-ma30"&gt;--&lt;/span&gt;
+                            &lt;/div&gt;
+                            &lt;div class="data-row"&gt;
+                                &lt;span class="data-label"&gt;ATR(14)&lt;/span&gt;
+                                &lt;span class="data-value" id="market-atr"&gt;--&lt;/span&gt;
+                            &lt;/div&gt;
+                            &lt;div class="data-row"&gt;
+                                &lt;span class="data-label"&gt;趋势方向&lt;/span&gt;
+                                &lt;span class="data-value" id="market-trend"&gt;--&lt;/span&gt;
+                            &lt;/div&gt;
+                            &lt;div class="data-row"&gt;
+                                &lt;span class="data-label"&gt;数据日期&lt;/span&gt;
+                                &lt;span class="data-value" id="market-date"&gt;--&lt;/span&gt;
+                            &lt;/div&gt;
+                        &lt;/div&gt;
+                    &lt;/div&gt;
+                &lt;/div&gt;
+                &lt;div class="col-lg-8"&gt;
+                    &lt;div class="card"&gt;
+                        &lt;div class="card-header"&gt;
+                            &lt;h5 class="card-title"&gt;&lt;i class="bi bi-bar-chart-line"&gt;&lt;/i&gt; 价格走势图&lt;/h5&gt;
+                        &lt;/div&gt;
+                        &lt;div class="card-body"&gt;
+                            &lt;div class="chart-container"&gt;
+                                &lt;canvas id="marketPriceChart"&gt;&lt;/canvas&gt;
+                            &lt;/div&gt;
+                        &lt;/div&gt;
+                    &lt;/div&gt;
+                &lt;/div&gt;
+            &lt;/div&gt;
+        &lt;/section&gt;
+
+        &lt;!-- 交易信号 --&gt;
+        &lt;section class="page-section" id="page-signals"&gt;
+            &lt;div class="page-header"&gt;
+                &lt;h1 class="page-title"&gt;交易信号&lt;/h1&gt;
+                &lt;p class="page-description"&gt;策略生成的买卖信号&lt;/p&gt;
+            &lt;/div&gt;
+            
+            &lt;div class="row g-4"&gt;
+                &lt;div class="col-lg-6"&gt;
+                    &lt;div class="card"&gt;
+                        &lt;div class="card-header"&gt;
+                            &lt;h5 class="card-title"&gt;&lt;i class="bi bi-signpost"&gt;&lt;/i&gt; 当前信号&lt;/h5&gt;
+                        &lt;/div&gt;
+                        &lt;div class="card-body text-center py-5"&gt;
+                            &lt;div class="signal-badge watch mb-4" id="signal-badge" style="font-size: 2rem; padding: 20px 40px;"&gt;--&lt;/div&gt;
+                            &lt;div class="data-row"&gt;
+                                &lt;span class="data-label"&gt;策略状态&lt;/span&gt;
+                                &lt;span class="data-value" id="signal-strategy-status"&gt;--&lt;/span&gt;
+                            &lt;/div&gt;
+                            &lt;div class="data-row"&gt;
+                                &lt;span class="data-label"&gt;信号原因&lt;/span&gt;
+                                &lt;span class="data-value" id="signal-reason"&gt;--&lt;/span&gt;
+                            &lt;/div&gt;
+                        &lt;/div&gt;
+                    &lt;/div&gt;
+                &lt;/div&gt;
+                &lt;div class="col-lg-6"&gt;
+                    &lt;div class="card"&gt;
+                        &lt;div class="card-header"&gt;
+                            &lt;h5 class="card-title"&gt;&lt;i class="bi bi-play-circle"&gt;&lt;/i&gt; 策略运行控制&lt;/h5&gt;
+                        &lt;/div&gt;
+                        &lt;div class="card-body"&gt;
+                            &lt;div class="data-row"&gt;
+                                &lt;span class="data-label"&gt;运行状态&lt;/span&gt;
+                                &lt;span class="data-value" id="runner-status"&gt;--&lt;/span&gt;
+                            &lt;/div&gt;
+                            &lt;div class="data-row"&gt;
+                                &lt;span class="data-label"&gt;最近信号&lt;/span&gt;
+                                &lt;span class="data-value" id="runner-last-signal"&gt;--&lt;/span&gt;
+                            &lt;/div&gt;
+                            &lt;div class="data-row"&gt;
+                                &lt;span class="data-label"&gt;最近交易&lt;/span&gt;
+                                &lt;span class="data-value" id="runner-last-trade"&gt;--&lt;/span&gt;
+                            &lt;/div&gt;
+                            &lt;div class="mt-4"&gt;
+                                &lt;button class="btn btn-secondary me-2" onclick="runnerStart('signal_only')"&gt;仅信号&lt;/button&gt;
+                                &lt;button class="btn btn-primary me-2" onclick="runnerStart('paper')"&gt;模拟交易&lt;/button&gt;
+                                &lt;button class="btn btn-danger" onclick="runnerStop()"&gt;停止&lt;/button&gt;
+                            &lt;/div&gt;
+                        &lt;/div&gt;
+                    &lt;/div&gt;
+                &lt;/div&gt;
+            &lt;/div&gt;
+        &lt;/section&gt;
+
+        &lt;!-- 模拟持仓 --&gt;
+        &lt;section class="page-section" id="page-portfolio"&gt;
+            &lt;div class="page-header"&gt;
+                &lt;h1 class="page-title"&gt;模拟持仓&lt;/h1&gt;
+                &lt;p class="page-description"&gt;模拟交易账户与持仓管理&lt;/p&gt;
+            &lt;/div&gt;
+            
+            &lt;div class="row g-4 mb-4"&gt;
+                &lt;div class="col-md-3"&gt;
+                    &lt;div class="stat-card"&gt;
+                        &lt;div class="stat-label"&gt;可用资金&lt;/div&gt;
+                        &lt;div class="stat-value" id="port-cash"&gt;--&lt;/div&gt;
+                    &lt;/div&gt;
+                &lt;/div&gt;
+                &lt;div class="col-md-3"&gt;
+                    &lt;div class="stat-card"&gt;
+                        &lt;div class="stat-label"&gt;持仓数量&lt;/div&gt;
+                        &lt;div class="stat-value" id="port-position"&gt;--&lt;/div&gt;
+                    &lt;/div&gt;
+                &lt;/div&gt;
+                &lt;div class="col-md-3"&gt;
+                    &lt;div class="stat-card"&gt;
+                        &lt;div class="stat-label"&gt;总价值&lt;/div&gt;
+                        &lt;div class="stat-value" id="port-total"&gt;--&lt;/div&gt;
+                    &lt;/div&gt;
+                &lt;/div&gt;
+                &lt;div class="col-md-3"&gt;
+                    &lt;div class="stat-card"&gt;
+                        &lt;div class="stat-label"&gt;总盈亏&lt;/div&gt;
+                        &lt;div class="stat-value" id="port-pnl"&gt;--&lt;/div&gt;
+                    &lt;/div&gt;
+                &lt;/div&gt;
+            &lt;/div&gt;
+            
+            &lt;div class="row g-4"&gt;
+                &lt;div class="col-lg-6"&gt;
+                    &lt;div class="card"&gt;
+                        &lt;div class="card-header"&gt;
+                            &lt;h5 class="card-title"&gt;&lt;i class="bi bi-info-circle"&gt;&lt;/i&gt; 持仓详情&lt;/h5&gt;
+                        &lt;/div&gt;
+                        &lt;div class="card-body"&gt;
+                            &lt;div class="data-row"&gt;
+                                &lt;span class="data-label"&gt;持仓价格&lt;/span&gt;
+                                &lt;span class="data-value" id="port-position-price"&gt;--&lt;/span&gt;
+                            &lt;/div&gt;
+                            &lt;div class="data-row"&gt;
+                                &lt;span class="data-label"&gt;持仓时间&lt;/span&gt;
+                                &lt;span class="data-value" id="port-position-time"&gt;--&lt;/span&gt;
+                            &lt;/div&gt;
+                            &lt;div class="data-row"&gt;
+                                &lt;span class="data-label"&gt;交易次数&lt;/span&gt;
+                                &lt;span class="data-value" id="port-trade-count"&gt;--&lt;/span&gt;
+                            &lt;/div&gt;
+                            &lt;div class="data-row"&gt;
+                                &lt;span class="data-label"&gt;胜率&lt;/span&gt;
+                                &lt;span class="data-value" id="port-win-rate"&gt;--&lt;/span&gt;
+                            &lt;/div&gt;
+                        &lt;/div&gt;
+                    &lt;/div&gt;
+                &lt;/div&gt;
+                &lt;div class="col-lg-6"&gt;
+                    &lt;div class="card"&gt;
+                        &lt;div class="card-header"&gt;
+                            &lt;h5 class="card-title"&gt;&lt;i class="bi bi-gear"&gt;&lt;/i&gt; 持仓配置&lt;/h5&gt;
+                        &lt;/div&gt;
+                        &lt;div class="card-body"&gt;
+                            &lt;div class="mb-3"&gt;
+                                &lt;label class="form-label"&gt;持仓数量（克）&lt;/label&gt;
+                                &lt;input type="number" id="config-position" class="form-control" value="0" min="0" step="10"&gt;
+                            &lt;/div&gt;
+                            &lt;div class="mb-3"&gt;
+                                &lt;label class="form-label"&gt;持仓价格（元/克）&lt;/label&gt;
+                                &lt;input type="number" id="config-price" class="form-control" value="0" min="0" step="0.01"&gt;
+                            &lt;/div&gt;
+                            &lt;div class="mb-3"&gt;
+                                &lt;label class="form-label"&gt;持仓时间&lt;/label&gt;
+                                &lt;input type="datetime-local" id="config-time" class="form-control"&gt;
+                            &lt;/div&gt;
+                            &lt;button class="btn btn-primary w-100" onclick="updatePositionConfig()"&gt;保存配置&lt;/button&gt;
+                            &lt;button class="btn btn-secondary w-100 mt-2" onclick="resetPortfolio()"&gt;重置账户&lt;/button&gt;
+                        &lt;/div&gt;
+                    &lt;/div&gt;
+                &lt;/div&gt;
+            &lt;/div&gt;
+        &lt;/section&gt;
+
+        &lt;!-- 回测分析 --&gt;
+        &lt;section class="page-section" id="page-backtest"&gt;
+            &lt;div class="page-header"&gt;
+                &lt;h1 class="page-title"&gt;回测分析&lt;/h1&gt;
+                &lt;p class="page-description"&gt;策略回测与性能分析&lt;/p&gt;
+            &lt;/div&gt;
+            
+            &lt;div class="card mb-4"&gt;
+                &lt;div class="card-header"&gt;
+                    &lt;h5 class="card-title"&gt;&lt;i class="bi bi-sliders"&gt;&lt;/i&gt; 回测参数&lt;/h5&gt;
+                &lt;/div&gt;
+                &lt;div class="card-body"&gt;
+                    &lt;div class="row g-3 align-items-end"&gt;
+                        &lt;div class="col-md-2"&gt;
+                            &lt;label class="form-label"&gt;引擎&lt;/label&gt;
+                            &lt;select id="bt-engine" class="form-select"&gt;
+                                &lt;option value="simple"&gt;简化（快速）&lt;/option&gt;
+                                &lt;option value="vectorbt"&gt;vectorbt（真实）&lt;/option&gt;
+                            &lt;/select&gt;
+                        &lt;/div&gt;
+                        &lt;div class="col-md-2"&gt;
+                            &lt;label class="form-label"&gt;开始日期&lt;/label&gt;
+                            &lt;input type="date" id="bt-start-date" class="form-control"&gt;
+                        &lt;/div&gt;
+                        &lt;div class="col-md-2"&gt;
+                            &lt;label class="form-label"&gt;结束日期&lt;/label&gt;
+                            &lt;input type="date" id="bt-end-date" class="form-control"&gt;
+                        &lt;/div&gt;
+                        &lt;div class="col-md-1"&gt;
+                            &lt;label class="form-label"&gt;快MA&lt;/label&gt;
+                            &lt;input type="number" id="bt-fast-ma" class="form-control" value="10" min="1" max="200"&gt;
+                        &lt;/div&gt;
+                        &lt;div class="col-md-1"&gt;
+                            &lt;label class="form-label"&gt;慢MA&lt;/label&gt;
+                            &lt;input type="number" id="bt-slow-ma" class="form-control" value="30" min="2" max="400"&gt;
+                        &lt;/div&gt;
+                        &lt;div class="col-md-2"&gt;
+                            &lt;label class="form-label"&gt;信号阈值&lt;/label&gt;
+                            &lt;input type="number" id="bt-signal-threshold" class="form-control" value="0.5" min="0" step="0.1"&gt;
+                        &lt;/div&gt;
+                        &lt;div class="col-md-2"&gt;
+                            &lt;button class="btn btn-primary w-100" onclick="runBacktest()"&gt;运行回测&lt;/button&gt;
+                        &lt;/div&gt;
+                    &lt;/div&gt;
+                &lt;/div&gt;
+            &lt;/div&gt;
+            
+            &lt;div class="card mb-4" id="bt-metrics-card" style="display: none;"&gt;
+                &lt;div class="card-header"&gt;
+                    &lt;h5 class="card-title"&gt;&lt;i class="bi bi-bar-chart"&gt;&lt;/i&gt; 回测指标&lt;/h5&gt;
+                &lt;/div&gt;
+                &lt;div class="card-body"&gt;
+                    &lt;div class="row g-4"&gt;
+                        &lt;div class="col-md-3"&gt;
+                            &lt;div class="stat-label"&gt;总收益&lt;/div&gt;
+                            &lt;div class="stat-value" id="bt-total-return"&gt;--&lt;/div&gt;
+                        &lt;/div&gt;
+                        &lt;div class="col-md-3"&gt;
+                            &lt;div class="stat-label"&gt;年化收益&lt;/div&gt;
+                            &lt;div class="stat-value" id="bt-annual-return"&gt;--&lt;/div&gt;
+                        &lt;/div&gt;
+                        &lt;div class="col-md-3"&gt;
+                            &lt;div class="stat-label"&gt;夏普比率&lt;/div&gt;
+                            &lt;div class="stat-value" id="bt-sharpe"&gt;--&lt;/div&gt;
+                        &lt;/div&gt;
+                        &lt;div class="col-md-3"&gt;
+                            &lt;div class="stat-label"&gt;最大回撤&lt;/div&gt;
+                            &lt;div class="stat-value negative" id="bt-maxdd"&gt;--&lt;/div&gt;
+                        &lt;/div&gt;
+                    &lt;/div&gt;
+                    &lt;div class="row g-4 mt-3"&gt;
+                        &lt;div class="col-md-3"&gt;
+                            &lt;div class="stat-label"&gt;交易次数&lt;/div&gt;
+                            &lt;div class="stat-value" id="bt-trades"&gt;--&lt;/div&gt;
+                        &lt;/div&gt;
+                        &lt;div class="col-md-3"&gt;
+                            &lt;div class="stat-label"&gt;胜率&lt;/div&gt;
+                            &lt;div class="stat-value" id="bt-winrate"&gt;--&lt;/div&gt;
+                        &lt;/div&gt;
+                        &lt;div class="col-md-6"&gt;
+                            &lt;div class="stat-label"&gt;期末权益&lt;/div&gt;
+                            &lt;div class="stat-value" id="bt-final-equity"&gt;--&lt;/div&gt;
+                        &lt;/div&gt;
+                    &lt;/div&gt;
+                &lt;/div&gt;
+            &lt;/div&gt;
+            
+            &lt;div class="row g-4"&gt;
+                &lt;div class="col-12"&gt;
+                    &lt;div class="card"&gt;
+                        &lt;div class="card-header"&gt;
+                            &lt;h5 class="card-title"&gt;&lt;i class="bi bi-graph-up-arrow"&gt;&lt;/i&gt; 价格与信号&lt;/h5&gt;
+                        &lt;/div&gt;
+                        &lt;div class="card-body"&gt;
+                            &lt;div class="chart-container" id="bt-price-chart"&gt;&lt;/div&gt;
+                        &lt;/div&gt;
+                    &lt;/div&gt;
+                &lt;/div&gt;
+                &lt;div class="col-12"&gt;
+                    &lt;div class="card"&gt;
+                        &lt;div class="card-header"&gt;
+                            &lt;h5 class="card-title"&gt;&lt;i class="bi bi-cash-stack"&gt;&lt;/i&gt; 权益曲线&lt;/h5&gt;
+                        &lt;/div&gt;
+                        &lt;div class="card-body"&gt;
+                            &lt;div class="chart-container" id="bt-equity-chart"&gt;&lt;/div&gt;
+                        &lt;/div&gt;
+                    &lt;/div&gt;
+                &lt;/div&gt;
+            &lt;/div&gt;
+        &lt;/section&gt;
+
+        &lt;!-- 因子分析 --&gt;
+        &lt;section class="page-section" id="page-factors"&gt;
+            &lt;div class="page-header"&gt;
+                &lt;h1 class="page-title"&gt;因子分析&lt;/h1&gt;
+                &lt;p class="page-description"&gt;关键因子识别与相关性分析&lt;/p&gt;
+            &lt;/div&gt;
+            
+            &lt;div class="quick-actions"&gt;
+                &lt;button class="btn btn-primary" onclick="loadFactorAnalysis()"&gt;
+                    &lt;i class="bi bi-play"&gt;&lt;/i&gt; 分析因子
+                &lt;/button&gt;
+                &lt;button class="btn btn-secondary" onclick="fetchMacroFactors()"&gt;
+                    &lt;i class="bi bi-download"&gt;&lt;/i&gt; 拉取宏观因子
+                &lt;/button&gt;
+            &lt;/div&gt;
+            
+            &lt;div class="card"&gt;
+                &lt;div class="card-header"&gt;
+                    &lt;h5 class="card-title"&gt;&lt;i class="bi bi-lightbulb"&gt;&lt;/i&gt; 分析结果&lt;/h5&gt;
+                &lt;/div&gt;
+                &lt;div class="card-body" id="factor-analysis-result"&gt;
+                    &lt;p class="text-muted"&gt;点击"分析因子"按钮开始分析&lt;/p&gt;
+                &lt;/div&gt;
+            &lt;/div&gt;
+        &lt;/section&gt;
+
+        &lt;!-- 投资决策 --&gt;
+        &lt;section class="page-section" id="page-decision"&gt;
+            &lt;div class="page-header"&gt;
+                &lt;h1 class="page-title"&gt;投资决策&lt;/h1&gt;
+                &lt;p class="page-description"&gt;基于因子分析的投资建议&lt;/p&gt;
+            &lt;/div&gt;
+            
+            &lt;div class="quick-actions"&gt;
+                &lt;button class="btn btn-primary" onclick="loadInvestmentDecision()"&gt;
+                    &lt;i class="bi bi-target"&gt;&lt;/i&gt; 获取投资建议
+                &lt;/button&gt;
+            &lt;/div&gt;
+            
+            &lt;div class="card"&gt;
+                &lt;div class="card-header"&gt;
+                    &lt;h5 class="card-title"&gt;&lt;i class="bi bi-clipboard-check"&gt;&lt;/i&gt; 决策结果&lt;/h5&gt;
+                &lt;/div&gt;
+                &lt;div class="card-body" id="investment-decision-result"&gt;
+                    &lt;p class="text-muted"&gt;点击"获取投资建议"按钮查看决策&lt;/p&gt;
+                &lt;/div&gt;
+            &lt;/div&gt;
+        &lt;/section&gt;
+
+        &lt;!-- 数据管理 --&gt;
+        &lt;section class="page-section" id="page-data"&gt;
+            &lt;div class="page-header"&gt;
+                &lt;h1 class="page-title"&gt;数据管理&lt;/h1&gt;
+                &lt;p class="page-description"&gt;数据文件与备份管理&lt;/p&gt;
+            &lt;/div&gt;
+            
+            &lt;div class="quick-actions"&gt;
+                &lt;button class="btn btn-primary" onclick="fetchData()"&gt;
+                    &lt;i class="bi bi-cloud-download"&gt;&lt;/i&gt; 获取最新数据
+                &lt;/button&gt;
+                &lt;button class="btn btn-secondary" onclick="refreshDataFiles()"&gt;
+                    &lt;i class="bi bi-arrow-repeat"&gt;&lt;/i&gt; 刷新文件列表
+                &lt;/button&gt;
+                &lt;button class="btn btn-secondary" onclick="createBackup()"&gt;
+                    &lt;i class="bi bi-save"&gt;&lt;/i&gt; 创建备份
+                &lt;/button&gt;
+            &lt;/div&gt;
+            
+            &lt;div class="card mb-4"&gt;
+                &lt;div class="card-header"&gt;
+                    &lt;h5 class="card-title"&gt;&lt;i class="bi bi-folder"&gt;&lt;/i&gt; 数据文件&lt;/h5&gt;
+                &lt;/div&gt;
+                &lt;div class="card-body"&gt;
+                    &lt;div class="table-responsive"&gt;
+                        &lt;table class="table"&gt;
+                            &lt;thead&gt;
+                                &lt;tr&gt;
+                                    &lt;th&gt;文件名&lt;/th&gt;
+                                    &lt;th&gt;大小&lt;/th&gt;
+                                    &lt;th&gt;行数&lt;/th&gt;
+                                    &lt;th&gt;修改时间&lt;/th&gt;
+                                    &lt;th&gt;操作&lt;/th&gt;
+                                &lt;/tr&gt;
+                            &lt;/thead&gt;
+                            &lt;tbody id="data-files-body"&gt;
+                                &lt;tr&gt;&lt;td colspan="5" class="text-center"&gt;加载中...&lt;/td&gt;&lt;/tr&gt;
+                            &lt;/tbody&gt;
+                        &lt;/table&gt;
+                    &lt;/div&gt;
+                &lt;/div&gt;
+            &lt;/div&gt;
+            
+            &lt;div class="card"&gt;
+                &lt;div class="card-header"&gt;
+                    &lt;h5 class="card-title"&gt;&lt;i class="bi bi-clock-history"&gt;&lt;/i&gt; 备份历史&lt;/h5&gt;
+                &lt;/div&gt;
+                &lt;div class="card-body"&gt;
+                    &lt;div class="table-responsive"&gt;
+                        &lt;table class="table"&gt;
+                            &lt;thead&gt;
+                                &lt;tr&gt;
+                                    &lt;th&gt;备份时间&lt;/th&gt;
+                                    &lt;th&gt;文件数&lt;/th&gt;
+                                    &lt;th&gt;大小&lt;/th&gt;
+                                    &lt;th&gt;操作&lt;/th&gt;
+                                &lt;/tr&gt;
+                            &lt;/thead&gt;
+                            &lt;tbody id="backups-body"&gt;
+                                &lt;tr&gt;&lt;td colspan="4" class="text-center"&gt;加载中...&lt;/td&gt;&lt;/tr&gt;
+                            &lt;/tbody&gt;
+                        &lt;/table&gt;
+                    &lt;/div&gt;
+                &lt;/div&gt;
+            &lt;/div&gt;
+        &lt;/section&gt;
+
+        &lt;!-- 策略设置 --&gt;
+        &lt;section class="page-section" id="page-settings"&gt;
+            &lt;div class="page-header"&gt;
+                &lt;h1 class="page-title"&gt;策略设置&lt;/h1&gt;
+                &lt;p class="page-description"&gt;策略参数配置与调整&lt;/p&gt;
+            &lt;/div&gt;
+            
+            &lt;div class="card"&gt;
+                &lt;div class="card-header"&gt;
+                    &lt;h5 class="card-title"&gt;&lt;i class="bi bi-sliders"&gt;&lt;/i&gt; 策略参数&lt;/h5&gt;
+                &lt;/div&gt;
+                &lt;div class="card-body"&gt;
+                    &lt;div class="row g-4"&gt;
+                        &lt;div class="col-md-6"&gt;
+                            &lt;div class="mb-3"&gt;
+                                &lt;label class="form-label"&gt;快速均线（天）&lt;/label&gt;
+                                &lt;input type="number" id="param-fast-ma" class="form-control" value="10" min="1" max="100" step="1"&gt;
+                            &lt;/div&gt;
+                            &lt;div class="mb-3"&gt;
+                                &lt;label class="form-label"&gt;慢速均线（天）&lt;/label&gt;
+                                &lt;input type="number" id="param-slow-ma" class="form-control" value="30" min="1" max="200" step="1"&gt;
+                            &lt;/div&gt;
+                            &lt;div class="mb-3"&gt;
+                                &lt;label class="form-label"&gt;止损比例（%）&lt;/label&gt;
+                                &lt;input type="number" id="param-stop-loss" class="form-control" value="5" min="0" max="50" step="0.1"&gt;
+                            &lt;/div&gt;
+                        &lt;/div&gt;
+                        &lt;div class="col-md-6"&gt;
+                            &lt;div class="mb-3"&gt;
+                                &lt;label class="form-label"&gt;ATR阈值（元）&lt;/label&gt;
+                                &lt;input type="number" id="param-atr-threshold" class="form-control" value="35" min="1" max="100" step="1"&gt;
+                            &lt;/div&gt;
+                            &lt;div class="mb-3"&gt;
+                                &lt;label class="form-label"&gt;信号阈值（元）&lt;/label&gt;
+                                &lt;input type="number" id="param-signal-threshold" class="form-control" value="0.5" min="0.1" max="5" step="0.1"&gt;
+                            &lt;/div&gt;
+                        &lt;/div&gt;
+                    &lt;/div&gt;
+                    &lt;button class="btn btn-primary" onclick="updateStrategyParams()"&gt;保存参数&lt;/button&gt;
+                &lt;/div&gt;
+            &lt;/div&gt;
+        &lt;/section&gt;
+
+        &lt;!-- 使用帮助 --&gt;
+        &lt;section class="page-section" id="page-help"&gt;
+            &lt;div class="page-header"&gt;
+                &lt;h1 class="page-title"&gt;使用帮助&lt;/h1&gt;
+                &lt;p class="page-description"&gt;系统使用说明与指南&lt;/p&gt;
+            &lt;/div&gt;
+            
+            &lt;div class="help-section"&gt;
+                &lt;h4&gt;&lt;i class="bi bi-info-circle"&gt;&lt;/i&gt; 功能概览&lt;/h4&gt;
+                &lt;ul&gt;
+                    &lt;li&gt;&lt;strong&gt;仪表盘&lt;/strong&gt;: 系统概览，显示关键指标和价格走势&lt;/li&gt;
+                    &lt;li&gt;&lt;strong&gt;实时行情&lt;/strong&gt;: 显示当前黄金价格、MA均线、ATR等技术指标&lt;/li&gt;
+                    &lt;li&gt;&lt;strong&gt;交易信号&lt;/strong&gt;: 根据策略生成买入/卖出/观望信号&lt;/li&gt;
+                    &lt;li&gt;&lt;strong&gt;模拟持仓&lt;/strong&gt;: 管理模拟交易账户和持仓&lt;/li&gt;
+                    &lt;li&gt;&lt;strong&gt;回测分析&lt;/strong&gt;: 对历史数据进行策略回测和性能分析&lt;/li&gt;
+                    &lt;li&gt;&lt;strong&gt;因子分析&lt;/strong&gt;: 分析影响黄金价格的关键因子&lt;/li&gt;
+                    &lt;li&gt;&lt;strong&gt;投资决策&lt;/strong&gt;: 基于因子分析提供投资建议&lt;/li&gt;
+                    &lt;li&gt;&lt;strong&gt;数据管理&lt;/strong&gt;: 管理数据文件和备份&lt;/li&gt;
+                    &lt;li&gt;&lt;strong&gt;策略设置&lt;/strong&gt;: 配置和调整策略参数&lt;/li&gt;
+                &lt;/ul&gt;
+            &lt;/div&gt;
+            
+            &lt;div class="help-section"&gt;
+                &lt;h4&gt;&lt;i class="bi bi-lightbulb"&gt;&lt;/i&gt; 策略说明&lt;/h4&gt;
+                &lt;ul&gt;
+                    &lt;li&gt;&lt;strong&gt;买入信号&lt;/strong&gt;: MA(快) &gt; MA(慢) + 信号阈值，且趋势为多头&lt;/li&gt;
+                    &lt;li&gt;&lt;strong&gt;卖出信号&lt;/strong&gt;: MA(快) &lt; MA(慢) - 信号阈值，且趋势为空头&lt;/li&gt;
+                    &lt;li&gt;&lt;strong&gt;策略暂停&lt;/strong&gt;: ATR &gt; ATR阈值，市场波动过大时暂停交易&lt;/li&gt;
+                &lt;/ul&gt;
+            &lt;/div&gt;
+            
+            &lt;div class="help-section"&gt;
+                &lt;h4&gt;&lt;i class="bi bi-shield-check"&gt;&lt;/i&gt; 风控规则&lt;/h4&gt;
+                &lt;ul&gt;
+                    &lt;li&gt;&lt;strong&gt;单笔亏损&lt;/strong&gt;: 不超过账户净值 1%&lt;/li&gt;
+                    &lt;li&gt;&lt;strong&gt;单日亏损&lt;/strong&gt;: 不超过 3%&lt;/li&gt;
+                    &lt;li&gt;&lt;strong&gt;止损机制&lt;/strong&gt;: 持仓亏损超过止损比例时强制平仓&lt;/li&gt;
+                &lt;/ul&gt;
+            &lt;/div&gt;
+            
+            &lt;div class="help-section"&gt;
+                &lt;h4&gt;&lt;i class="bi bi-play-circle"&gt;&lt;/i&gt; 操作指南&lt;/h4&gt;
+                &lt;ul&gt;
+                    &lt;li&gt;&lt;strong&gt;首次使用&lt;/strong&gt;: 先点击"获取最新数据"获取历史行情数据&lt;/li&gt;
+                    &lt;li&gt;&lt;strong&gt;查看信号&lt;/strong&gt;: 在"交易信号"页面查看当前策略信号&lt;/li&gt;
+                    &lt;li&gt;&lt;strong&gt;回测策略&lt;/strong&gt;: 在"回测分析"页面运行策略回测，评估性能&lt;/li&gt;
+                    &lt;li&gt;&lt;strong&gt;调整参数&lt;/strong&gt;: 在"策略设置"页面调整策略参数，找到最优配置&lt;/li&gt;
+                    &lt;li&gt;&lt;strong&gt;模拟交易&lt;/strong&gt;: 在"交易信号"页面启动"模拟交易"模式&lt;/li&gt;
+                &lt;/ul&gt;
+            &lt;/div&gt;
+        &lt;/section&gt;
+    &lt;/main&gt;
+
+    &lt;script&gt;
+        const API_BASE = '';
+        let priceChart, dashPriceChart, marketPriceChart;
+        let autoRefreshInterval = null;
+        
+        // 页面导航
+        document.querySelectorAll('.nav-link').forEach(link =&gt; {
+            link.addEventListener('click', function() {
+                const page = this.getAttribute('data-page');
+                
+                // 更新导航状态
+                document.querySelectorAll('.nav-link').forEach(l =&gt; l.classList.remove('active'));
+                this.classList.add('active');
+                
+                // 切换页面
+                document.querySelectorAll('.page-section').forEach(section =&gt; {
+                    section.classList.remove('active');
+                });
+                document.getElementById('page-' + page).classList.add('active');
+                
+                // 页面特定初始化
+                if (page === 'data') {
+                    refreshDataFiles();
+                    refreshBackups();
+                } else if (page === 'backtest') {
+                    loadBacktestReports();
+                }
+            });
+        });
+        
+        // 初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            refreshAll();
+            autoRefreshInterval = setInterval(refreshAll, 60000);
+        });
+        
+        async function refreshAll() {
+            await Promise.all([
+                loadMarketData(),
+                loadPortfolio(),
+                loadStatus(),
+                loadStrategyParams()
+            ]);
+        }
+        
+        async function loadMarketData() {
+            try {
+                const response = await fetch(`${API_BASE}/api/market_data`);
+                const data = await response.json();
+                
+                if (data.has_data) {
+                    // 更新仪表盘
+                    document.getElementById('dash-price').textContent = '¥' + data.current_price;
+                    updateSignalBadge('dash-signal', data.signal);
+                    
+                    // 更新行情页
+                    document.getElementById('market-price').textContent = '¥' + data.current_price;
+                    document.getElementById('market-ma10').textContent = '¥' + data.ma10;
+                    document.getElementById('market-ma30').textContent = '¥' + data.ma30;
+                    document.getElementById('market-atr').textContent = '¥' + data.atr;
+                    document.getElementById('market-trend').textContent = data.trend;
+                    document.getElementById('market-date').textContent = data.date;
+                    
+                    // 更新信号页
+                    updateSignalBadge('signal-badge', data.signal);
+                    document.getElementById('signal-strategy-status').textContent = data.strategy_status;
+                }
+                
+                // 加载信号原因
+                loadSignal();
+                
+                // 更新图表
+                updatePriceCharts();
+            } catch (e) {
+                console.error('加载市场数据失败:', e);
+            }
+        }
+        
+        async function loadSignal() {
+            try {
+                const response = await fetch(`${API_BASE}/api/signal`);
+                const data = await response.json();
+                document.getElementById('signal-reason').textContent = data.reason;
+            } catch (e) {
+                console.error('加载信号失败:', e);
+            }
+        }
+        
+        async function loadPortfolio() {
+            try {
+                const response = await fetch(`${API_BASE}/api/portfolio`);
+                const data = await response.json();
+                
+                // 仪表盘
+                document.getElementById('dash-value').textContent = '¥' + data.total_value.toLocaleString();
+                const pnlEl = document.getElementById('dash-pnl');
+                pnlEl.textContent = (data.total_pnl &gt;= 0 ? '+' : '') + '¥' + data.total_pnl.toLocaleString();
+                pnlEl.className = 'stat-value ' + (data.total_pnl &gt;= 0 ? 'positive' : 'negative');
+                document.getElementById('dash-trade-count').textContent = data.trade_count;
+                
+                // 持仓页
+                document.getElementById('port-cash').textContent = '¥' + data.cash.toLocaleString();
+                document.getElementById('port-position').textContent = data.position + ' 克';
+                document.getElementById('port-total').textContent = '¥' + data.total_value.toLocaleString();
+                const portPnlEl = document.getElementById('port-pnl');
+                portPnlEl.textContent = (data.total_pnl &gt;= 0 ? '+' : '') + '¥' + data.total_pnl.toLocaleString();
+                portPnlEl.className = 'stat-value ' + (data.total_pnl &gt;= 0 ? 'positive' : 'negative');
+                
+                document.getElementById('port-position-price').textContent = data.position_price ? '¥' + data.position_price : '--';
+                document.getElementById('port-position-time').textContent = data.position_time || '--';
+                document.getElementById('port-trade-count').textContent = data.trade_count;
+                document.getElementById('port-win-rate').textContent = data.win_rate + '%';
+            } catch (e) {
+                console.error('加载持仓失败:', e);
+            }
+        }
+        
+        async function loadStatus() {
+            try {
+                const response = await fetch(`${API_BASE}/api/status`);
+                const data = await response.json();
+                
+                document.getElementById('dash-strategy-status').textContent = data.validation.is_valid ? '正常' : '异常';
+                document.getElementById('dash-data-status').textContent = data.has_verified_data ? '已加载' : '未加载';
+                document.getElementById('dash-data-count').textContent = data.validation.data_count + ' 条';
+                document.getElementById('dash-last-update').textContent = data.last_update;
+            } catch (e) {
+                console.error('加载状态失败:', e);
+            }
+        }
+        
+        async function loadStrategyParams() {
+            try {
+                const response = await fetch(`${API_BASE}/api/strategy_params`);
+                const params = await response.json();
+                
+                document.getElementById('param-fast-ma').value = params.fast_ma;
+                document.getElementById('param-slow-ma').value = params.slow_ma;
+                document.getElementById('param-stop-loss').value = params.stop_loss;
+                document.getElementById('param-atr-threshold').value = params.atr_threshold;
+                document.getElementById('param-signal-threshold').value = params.signal_threshold;
+            } catch (e) {
+                console.error('加载策略参数失败:', e);
+            }
+        }
+        
+        function updateSignalBadge(elementId, signal) {
+            const badge = document.getElementById(elementId);
+            badge.textContent = signal;
+            badge.className = 'signal-badge ' + signal.toLowerCase();
+        }
+        
+        async function updatePriceCharts() {
+            // 简化实现，实际项目中应该获取历史数据
+        }
+        
+        async function fetchData() {
+            try {
+                const response = await fetch(`${API_BASE}/api/fetch_data`, { method: 'POST' });
+                const result = await response.json();
+                
+                if (result.success) {
+                    alert(`成功获取${result.data_count}条数据`);
+                    refreshAll();
+                } else {
+                    alert('获取失败: ' + result.message);
+                }
+            } catch (e) {
+                alert('获取失败: ' + e.message);
+            }
+        }
+        
+        async function updateStrategyParams() {
+            try {
+                const params = {
+                    fast_ma: parseInt(document.getElementById('param-fast-ma').value),
+                    slow_ma: parseInt(document.getElementById('param-slow-ma').value),
+                    stop_loss: parseFloat(document.getElementById('param-stop-loss').value),
+                    atr_threshold: parseFloat(document.getElementById('param-atr-threshold').value),
+                    signal_threshold: parseFloat(document.getElementById('param-signal-threshold').value)
+                };
+                
+                const response = await fetch(`${API_BASE}/api/strategy_params`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(params)
+                });
+                
+                const result = await response.json();
+                if (result.success) {
+                    alert('策略参数已更新');
+                    refreshAll();
+                } else {
+                    alert('更新失败: ' + result.message);
+                }
+            } catch (e) {
+                alert('更新失败: ' + e.message);
+            }
+        }
+        
+        async function updatePositionConfig() {
+            try {
+                const data = {
+                    position: parseFloat(document.getElementById('config-position').value),
+                    position_price: parseFloat(document.getElementById('config-price').value),
+                    position_time: document.getElementById('config-time').value
+                };
+                
+                const response = await fetch(`${API_BASE}/api/portfolio`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+                
+                const result = await response.json();
+                if (result.success) {
+                    alert('持仓配置已保存');
+                    refreshAll();
+                } else {
+                    alert('保存失败: ' + result.message);
+                }
+            } catch (e) {
+                alert('保存失败: ' + e.message);
+            }
+        }
+        
+        async function resetPortfolio() {
+            if (confirm('确定要重置模拟账户吗？')) {
+                try {
+                    const response = await fetch(`${API_BASE}/api/portfolio`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ reset: true })
+                    });
+                    
+                    const result = await response.json();
+                    if (result.success) {
+                        alert('模拟账户已重置');
+                        refreshAll();
+                    } else {
+                        alert('重置失败: ' + result.message);
+                    }
+                } catch (e) {
+                    alert('重置失败: ' + e.message);
+                }
+            }
+        }
+        
+        async function runnerStart(mode) {
+            try {
+                const response = await fetch(`${API_BASE}/api/runner/start`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ mode: mode })
+                });
+                
+                const result = await response.json();
+                if (result.success) {
+                    alert('策略已启动');
+                    refreshAll();
+                } else {
+                    alert('启动失败: ' + result.message);
+                }
+            } catch (e) {
+                alert('启动失败: ' + e.message);
+            }
+        }
+        
+        async function runnerStop() {
+            try {
+                const response = await fetch(`${API_BASE}/api/runner/stop`, {
+                    method: 'POST'
+                });
+                
+                const result = await response.json();
+                if (result.success) {
+                    alert('策略已停止');
+                    refreshAll();
+                } else {
+                    alert('停止失败: ' + result.message);
+                }
+            } catch (e) {
+                alert('停止失败: ' + e.message);
+            }
+        }
+        
+        async function refreshDataFiles() {
+            try {
+                const response = await fetch(`${API_BASE}/api/data/files`);
+                const files = await response.json();
+                
+                const tbody = document.getElementById('data-files-body');
+                tbody.innerHTML = files.length === 0 ? 
+                    '&lt;tr&gt;&lt;td colspan="5" class="text-center"&gt;暂无数据文件&lt;/td&gt;&lt;/tr&gt;' :
+                    files.map(f =&gt; `
+                        &lt;tr&gt;
+                            &lt;td&gt;${f.name}&lt;/td&gt;
+                            &lt;td&gt;${f.size}&lt;/td&gt;
+                            &lt;td&gt;${f.row_count}&lt;/td&gt;
+                            &lt;td&gt;${f.modified_time}&lt;/td&gt;
+                            &lt;td&gt;&lt;button class="btn btn-sm btn-secondary" onclick="createBackup('${f.name}')"&gt;备份&lt;/button&gt;&lt;/td&gt;
+                        &lt;/tr&gt;
+                    `).join('');
+            } catch (e) {
+                console.error('刷新文件列表失败:', e);
+            }
+        }
+        
+        async function refreshBackups() {
+            try {
+                const response = await fetch(`${API_BASE}/api/data/backup`);
+                const backups = await response.json();
+                
+                const tbody = document.getElementById('backups-body');
+                tbody.innerHTML = backups.length === 0 ? 
+                    '&lt;tr&gt;&lt;td colspan="4" class="text-center"&gt;暂无备份&lt;/td&gt;&lt;/tr&gt;' :
+                    backups.map(b =&gt; `
+                        &lt;tr&gt;
+                            &lt;td&gt;${b.time}&lt;/td&gt;
+                            &lt;td&gt;${b.file_count}&lt;/td&gt;
+                            &lt;td&gt;${b.size}&lt;/td&gt;
+                            &lt;td&gt;&lt;button class="btn btn-sm btn-secondary" onclick="restoreBackup('${b.time}')"&gt;恢复&lt;/button&gt;&lt;/td&gt;
+                        &lt;/tr&gt;
+                    `).join('');
+            } catch (e) {
+                console.error('刷新备份列表失败:', e);
+            }
+        }
+        
+        async function createBackup(fileName) {
+            try {
+                const response = await fetch(`${API_BASE}/api/data/backup`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ file_name: fileName })
+                });
+                
+                const result = await response.json();
+                if (result.success) {
+                    alert('备份创建成功');
+                    refreshBackups();
+                } else {
+                    alert('备份失败: ' + result.message);
+                }
+            } catch (e) {
+                alert('备份失败: ' + e.message);
+            }
+        }
+        
+        async function restoreBackup(backupTime) {
+            if (confirm('确定要恢复此备份吗？')) {
+                try {
+                    const response = await fetch(`${API_BASE}/api/data/restore`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ backup_time: backupTime })
+                    });
+                    
+                    const result = await response.json();
+                    if (result.success) {
+                        alert('备份恢复成功');
+                        refreshAll();
+                    } else {
+                        alert('恢复失败: ' + result.message);
+                    }
+                } catch (e) {
+                    alert('恢复失败: ' + e.message);
+                }
+            }
+        }
+        
+        async function loadFactorAnalysis() {
+            try {
+                const response = await fetch(`${API_BASE}/api/factors/analysis`);
+                const result = await response.json();
+                
+                const container = document.getElementById('factor-analysis-result');
+                if (result.success) {
+                    container.innerHTML = `
+                        &lt;div class="alert alert-success"&gt;
+                            &lt;h5&gt;分析完成！&lt;/h5&gt;
+                            &lt;p&gt;数据范围: ${result.analysis.data_info.date_range}&lt;/p&gt;
+                            &lt;p&gt;记录数: ${result.analysis.data_info.rows}&lt;/p&gt;
+                        &lt;/div&gt;
+                        &lt;h5&gt;关键因子&lt;/h5&gt;
+                        &lt;ul class="list-group"&gt;
+                            ${result.analysis.key_factors.map(([factor, score]) =&gt; 
+                                `&lt;li class="list-group-item bg-transparent border-warning border-opacity-25"&gt;${factor}: 得分 ${score.toFixed(4)}&lt;/li&gt;`
+                            ).join('')}
+                        &lt;/ul&gt;
+                    `;
+                } else {
+                    container.innerHTML = `&lt;p class="text-danger"&gt;分析失败: ${result.message}&lt;/p&gt;`;
+                }
+            } catch (e) {
+                console.error('加载因子分析失败:', e);
+                document.getElementById('factor-analysis-result').innerHTML = 
+                    `&lt;p class="text-danger"&gt;加载失败: ${e.message}&lt;/p&gt;`;
+            }
+        }
+        
+        async function fetchMacroFactors() {
+            try {
+                const response = await fetch(`${API_BASE}/api/factors/fetch`, { method: 'POST' });
+                const result = await response.json();
+                
+                if (result.success) {
+                    alert('宏观因子获取成功');
+                } else {
+                    alert('获取失败: ' + result.message);
+                }
+            } catch (e) {
+                alert('获取失败: ' + e.message);
+            }
+        }
+        
+        async function loadInvestmentDecision() {
+            try {
+                const response = await fetch(`${API_BASE}/api/investment/decision`);
+                const result = await response.json();
+                
+                const container = document.getElementById('investment-decision-result');
+                if (result.success) {
+                    const decision = result.decision;
+                    container.innerHTML = `
+                        &lt;div class="alert alert-info"&gt;
+                            &lt;h5&gt;投资建议&lt;/h5&gt;
+                            &lt;p&gt;&lt;strong&gt;仓位建议:&lt;/strong&gt; ${decision.position}&lt;/p&gt;
+                            &lt;p&gt;&lt;strong&gt;推荐策略:&lt;/strong&gt; ${decision.strategy}&lt;/p&gt;
+                        &lt;/div&gt;
+                        &lt;h5&gt;市场环境&lt;/h5&gt;
+                        &lt;ul class="list-group mb-3"&gt;
+                            &lt;li class="list-group-item bg-transparent border-warning border-opacity-25"&gt;趋势: ${decision.market_environment.trend}&lt;/li&gt;
+                            &lt;li class="list-group-item bg-transparent border-warning border-opacity-25"&gt;波动性: ${decision.market_environment.volatility}&lt;/li&gt;
+                            &lt;li class="list-group-item bg-transparent border-warning border-opacity-25"&gt;当前价格: ¥${decision.market_environment.current_price.toFixed(2)}&lt;/li&gt;
+                        &lt;/ul&gt;
+                        &lt;h5&gt;风险管理&lt;/h5&gt;
+                        &lt;ul class="list-group mb-3"&gt;
+                            &lt;li class="list-group-item bg-transparent border-warning border-opacity-25"&gt;止损: ${decision.risk_management.stop_loss}%&lt;/li&gt;
+                            &lt;li class="list-group-item bg-transparent border-warning border-opacity-25"&gt;止盈: ${decision.risk_management.take_profit}%&lt;/li&gt;
+                            &lt;li class="list-group-item bg-transparent border-warning border-opacity-25"&gt;仓位大小: ${decision.risk_management.position_size * 100}%&lt;/li&gt;
+                        &lt;/ul&gt;
+                        &lt;h5&gt;决策说明&lt;/h5&gt;
+                        &lt;pre style="white-space: pre-wrap; background: rgba(0,0,0,0.2); padding: 15px; border-radius: 8px;"&gt;${decision.explanation}&lt;/pre&gt;
+                    `;
+                } else {
+                    container.innerHTML = `&lt;p class="text-danger"&gt;获取失败: ${result.message}&lt;/p&gt;`;
+                }
+            } catch (e) {
+                console.error('加载投资决策失败:', e);
+                document.getElementById('investment-decision-result').innerHTML = 
+                    `&lt;p class="text-danger"&gt;加载失败: ${e.message}&lt;/p&gt;`;
+            }
+        }
+        
+        async function runBacktest() {
+            try {
+                const params = {
+                    engine: document.getElementById('bt-engine').value,
+                    start_date: document.getElementById('bt-start-date').value,
+                    end_date: document.getElementById('bt-end-date').value,
+                    fast_ma: parseInt(document.getElementById('bt-fast-ma').value),
+                    slow_ma: parseInt(document.getElementById('bt-slow-ma').value),
+                    signal_threshold: parseFloat(document.getElementById('bt-signal-threshold').value),
+                    atr_threshold: parseFloat(document.getElementById('bt-atr-threshold').value),
+                    stop_loss: parseFloat(document.getElementById('bt-stop-loss').value || 5)
+                };
+                
+                const response = await fetch(`${API_BASE}/api/backtest/run`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(params)
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    const metrics = result.result.metrics;
+                    document.getElementById('bt-metrics-card').style.display = 'block';
+                    document.getElementById('bt-total-return').textContent = (metrics.total_return * 100).toFixed(2) + '%';
+                    document.getElementById('bt-annual-return').textContent = (metrics.annual_return * 100).toFixed(2) + '%';
+                    document.getElementById('bt-sharpe').textContent = metrics.sharpe_ratio.toFixed(2);
+                    document.getElementById('bt-maxdd').textContent = metrics.max_drawdown_percent.toFixed(2) + '%';
+                    document.getElementById('bt-trades').textContent = metrics.total_trades;
+                    document.getElementById('bt-winrate').textContent = (metrics.win_rate * 100).toFixed(2) + '%';
+                    document.getElementById('bt-final-equity').textContent = '¥' + metrics.final_equity.toLocaleString();
+                    
+                    alert('回测完成！');
+                } else {
+                    alert('回测失败: ' + result.message);
+                }
+            } catch (e) {
+                alert('回测失败: ' + e.message);
+            }
+        }
+        
+        function loadBacktestReports() {
+            // 简化实现
+        }
+    &lt;/script&gt;
+&lt;/body&gt;
+&lt;/html&gt;
