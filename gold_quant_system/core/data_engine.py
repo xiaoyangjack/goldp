@@ -50,7 +50,11 @@ class DataEngine:
             
             # 处理数据
             df = data.copy()
-            df.columns = df.columns.str.lower()
+            # 处理MultiIndex列名
+            if isinstance(df.columns, pd.MultiIndex):
+                df.columns = df.columns.get_level_values(0).str.lower()
+            else:
+                df.columns = df.columns.str.lower()
             
             # 确保必要的列存在
             if 'close' not in df.columns:
@@ -97,6 +101,9 @@ class DataEngine:
         try:
             dxy_data = yf.download('DX-Y.NYB', start=start_date, end=end_date)
             if len(dxy_data) > 0:
+                # 处理MultiIndex列名
+                if isinstance(dxy_data.columns, pd.MultiIndex):
+                    dxy_data.columns = dxy_data.columns.get_level_values(0)
                 self.dxy_data = dxy_data['Close'].rename('dxy_close')
                 return self.dxy_data
             return None

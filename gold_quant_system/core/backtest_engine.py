@@ -312,7 +312,10 @@ class BacktestEngine:
         """
         计算绩效指标
         """
-        total_return = (portfolio_values[-1] - self.initial_cash) / self.initial_cash
+        if isinstance(portfolio_values, np.ndarray):
+            portfolio_values = pd.Series(portfolio_values)
+        
+        total_return = (portfolio_values.iloc[-1] - self.initial_cash) / self.initial_cash
         
         # 年化收益
         n_days = len(portfolio_values)
