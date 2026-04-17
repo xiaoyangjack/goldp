@@ -1,0 +1,20 @@
+# Gold Quant Research System 依赖包
+
+# 数据处理
+pandas>=2.0.0
+numpy>=1.24.0,<2.0
+
+# 数据获取
+yfinance>=0.2.0
+
+# 可视化
+matplotlib>=3.7.0
+
+# GUI框架
+PyQt6>=6.5.0
+
+# 日志
+loguru>=0.7.0
+
+# 科学计算
+scipy>=1.10.0
