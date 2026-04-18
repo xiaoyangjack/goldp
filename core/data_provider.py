@@ -4,6 +4,7 @@
 统一数据提供者
 支持多数据源的黄金数据获取，包含降级机制
 """
+
 import os
 import json
 import feedparser
@@ -523,6 +524,7 @@ class GoldDataProvider:
             print(f"API Ninjas数据获取失败: {e}")
         
         return pd.DataFrame()
+
 
 # 全局实例
 data_provider = GoldDataProvider()

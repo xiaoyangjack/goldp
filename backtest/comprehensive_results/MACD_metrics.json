@@ -1,9 +1,0 @@
-{
-  "strategy": "MACD",
-  "parameters": {},
-  "total_return": -1.92170797251211,
-  "annual_return": -0.2012739029352395,
-  "sharpe_ratio": 0.06343119441568808,
-  "max_drawdown": -35.169910961446945,
-  "win_rate": 50.041220115416316
-}

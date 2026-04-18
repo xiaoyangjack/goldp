@@ -65,6 +65,25 @@ class FactorEngine:
         if 'dxy_close' in result_df.columns:
             result_df = self._calculate_dxy_factors(result_df)
         
+        # 计算市场状态（Regime）
+        result_df = self._calculate_regime(result_df)
+        
+        # 计算扩展因子
+        try:
+            from core.extended_factors import ExtendedFactors
+            extended = ExtendedFactors()
+            result_df = extended.calculate_all_extended_factors(result_df)
+        except Exception as e:
+            logger.warning(f"计算扩展因子失败: {e}")
+        
+        # 计算因子有效性评分体系
+        try:
+            from core.factor_effectiveness import FactorEffectiveness
+            factor_effectiveness = FactorEffectiveness()
+            result_df = factor_effectiveness.calculate_factor_effectiveness(result_df)
+        except Exception as e:
+            logger.warning(f"计算因子有效性失败: {e}")
+        
         self.factor_data = result_df
         logger.info("所有因子计算完成")
         return result_df
@@ -263,6 +282,35 @@ class FactorEngine:
         df.loc[(df['dxy_close'] > df['dxy_ma5']) & (df['dxy_close'].shift(1) <= df['dxy_ma5'].shift(1)), 'dxy_cross_up'] = 1
         
         logger.info(f"DXY因子计算完成: period={period}")
+        return df
+    
+    def _calculate_regime(self, df, fast_period=20, slow_period=60, atr_period=14, quantile=0.7):
+        """
+        计算市场状态（Regime）
+        
+        Args:
+            df: 价格数据
+            fast_period: 快线周期
+            slow_period: 慢线周期
+            atr_period: ATR周期
+            quantile: 趋势强度阈值分位数
+        
+        Returns:
+            pd.DataFrame: 包含Regime的DataFrame
+        """
+        df = df.copy()
+        
+        # 计算趋势强度
+        trend_strength = (df['sma_fast'] - df['sma_slow']).abs() / df['atr']
+        
+        # 计算阈值
+        TREND_TH = trend_strength.quantile(quantile)
+        
+        # 分类市场状态
+        df['regime'] = 'RANGE'
+        df.loc[trend_strength > TREND_TH, 'regime'] = 'TREND'
+        
+        logger.info(f"Regime计算完成: 阈值={TREND_TH:.4f}, TREND占比={(df['regime'] == 'TREND').mean():.2%}")
         return df
     
     def get_factor_list(self):

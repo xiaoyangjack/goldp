@@ -2,143 +2,108 @@
 # -*- coding: utf-8 -*-
 """
 SSL修复模块
-智能处理不同类型的SSL连接问题
+智能处理SSL连接问题，提供可靠的HTTP会话管理
 """
+
 import os
 import json
 import time
+from typing import Dict, Any, Optional
 import requests
-from requests.adapters import HTTPAdapter
-from urllib3.util.retry import Retry
 import certifi
-from typing import Optional, Dict, Any
 
-class SmartHttpSession:
-    """智能HTTP会话管理"""
+
+class SmartHttpSession(requests.Session):
+    """智能HTTP会话"""
     
-    def __init__(self, env_report_path: str = "diagnostics/env_report.json"):
-        """初始化智能会话"""
-        self.session = requests.Session()
-        self.env_report_path = env_report_path
-        self.domain_strategies = {}
-        self._initialize_session()
-        self._load_env_report()
+    def __init__(self):
+        """初始化智能HTTP会话"""
+        super().__init__()
+        self.env_report = self._load_env_report()
+        self._configure_session()
     
-    def _initialize_session(self):
-        """初始化会话配置"""
-        # 配置重试策略
-        retries = Retry(
-            total=3,
-            backoff_factor=1,
-            status_forcelist=[429, 500, 502, 503, 504],
-            allowed_methods=["GET", "POST"]
-        )
-        adapter = HTTPAdapter(max_retries=retries)
-        self.session.mount("http://", adapter)
-        self.session.mount("https://", adapter)
-        
-        # 默认SSL配置
-        self.session.verify = certifi.where()
-        
-        # 默认 headers
-        self.session.headers.update({
-            "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
-            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
-            "Accept-Language": "zh-CN,zh;q=0.8,en-US;q=0.5,en;q=0.3",
-            "Accept-Encoding": "gzip, deflate, br",
-            "Connection": "keep-alive",
-            "Upgrade-Insecure-Requests": "1"
-        })
-    
-    def _load_env_report(self):
-        """加载环境报告并设置域名策略"""
-        if os.path.exists(self.env_report_path):
+    def _load_env_report(self) -> Dict[str, Any]:
+        """加载环境报告"""
+        report_path = "diagnostics/env_report.json"
+        if os.path.exists(report_path):
             try:
-                with open(self.env_report_path, 'r', encoding='utf-8') as f:
-                    report = json.load(f)
-                
-                for test in report.get('ssl_tests', []):
-                    url = test['url']
-                    error_type = test.get('error_type')
-                    if error_type:
-                        domain = self._extract_domain(url)
-                        if domain:
-                            self.domain_strategies[domain] = error_type
-                            self._apply_strategy(domain, error_type)
+                with open(report_path, 'r', encoding='utf-8') as f:
+                    return json.load(f)
             except Exception:
                 pass
+        return {}
     
-    def _extract_domain(self, url: str) -> Optional[str]:
-        """从URL中提取域名"""
-        try:
-            from urllib.parse import urlparse
-            parsed = urlparse(url)
-            return parsed.netloc
-        except Exception:
-            return None
-    
-    def _apply_strategy(self, domain: str, error_type: str):
-        """根据错误类型应用相应策略"""
-        if error_type == "SSLCertVerificationError":
-            # 证书问题：使用certifi
-            self.session.verify = certifi.where()
-        elif error_type == "ProxyError":
-            # 代理问题：读取环境变量
-            http_proxy = os.environ.get("HTTP_PROXY")
-            https_proxy = os.environ.get("HTTPS_PROXY")
-            if http_proxy or https_proxy:
-                proxies = {}
-                if http_proxy:
-                    proxies["http"] = http_proxy
-                if https_proxy:
-                    proxies["https"] = https_proxy
-                self.session.proxies.update(proxies)
-    
-    def smart_get(self, url: str, **kwargs) -> requests.Response:
-        """智能GET请求"""
-        # 获取域名并应用策略
-        domain = self._extract_domain(url)
-        if domain and domain in self.domain_strategies:
-            error_type = self.domain_strategies[domain]
-            self._apply_strategy(domain, error_type)
+    def _configure_session(self):
+        """配置会话"""
+        # 设置默认证书验证
+        self.verify = certifi.where()
         
         # 设置默认超时
-        if "timeout" not in kwargs:
-            kwargs["timeout"] = 15
+        self.timeout = 15
         
-        # 指数退避重试
+        # 设置默认 headers
+        self.headers.update({
+            "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8"
+        })
+        
+        # 根据环境报告配置代理
+        self._configure_proxy()
+    
+    def _configure_proxy(self):
+        """配置代理"""
+        # 从环境变量读取代理配置
+        https_proxy = os.environ.get("HTTPS_PROXY")
+        http_proxy = os.environ.get("HTTP_PROXY")
+        
+        if https_proxy:
+            self.proxies["https"] = https_proxy
+        if http_proxy:
+            self.proxies["http"] = http_proxy
+    
+    def smart_get(self, url: str, **kwargs) -> requests.Response:
+        """智能GET请求
+        
+        Args:
+            url: 请求URL
+            **kwargs: 其他参数
+            
+        Returns:
+            requests.Response: 响应对象
+        """
+        # 设置默认参数
+        kwargs.setdefault("timeout", self.timeout)
+        kwargs.setdefault("verify", self.verify)
+        
+        # 重试机制
         max_retries = 3
+        base_delay = 1
+        
         for attempt in range(max_retries):
             try:
-                response = self.session.get(url, **kwargs)
+                response = self.get(url, **kwargs)
                 response.raise_for_status()
                 return response
             except requests.exceptions.RequestException as e:
                 if attempt == max_retries - 1:
                     raise
-                wait_time = 2 ** attempt
-                time.sleep(wait_time)
+                
+                # 指数退避
+                delay = base_delay * (2 ** attempt)
+                time.sleep(delay)
+                continue
     
-    def get(self, url: str, **kwargs) -> requests.Response:
-        """标准GET请求"""
-        return self.smart_get(url, **kwargs)
-    
-    def post(self, url: str, **kwargs) -> requests.Response:
-        """POST请求"""
-        # 同样应用智能策略
-        domain = self._extract_domain(url)
-        if domain and domain in self.domain_strategies:
-            error_type = self.domain_strategies[domain]
-            self._apply_strategy(domain, error_type)
+    def get_domain_status(self, domain: str) -> str:
+        """获取域名状态"""
+        if not self.env_report:
+            return "unknown"
         
-        if "timeout" not in kwargs:
-            kwargs["timeout"] = 15
+        for test in self.env_report.get("ssl_tests", []):
+            if domain in test.get("url", ""):
+                return test.get("status", "unknown")
         
-        return self.session.post(url, **kwargs)
-    
-    def close(self):
-        """关闭会话"""
-        self.session.close()
+        return "unknown"
+
 
 # 全局实例
-smart_session = SmartHttpSession()
+session = SmartHttpSession()

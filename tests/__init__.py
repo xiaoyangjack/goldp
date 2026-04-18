@@ -1,1 +1,0 @@
-# GoldQuant tests module

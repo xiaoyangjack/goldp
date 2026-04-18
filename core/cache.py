@@ -2,14 +2,16 @@
 # -*- coding: utf-8 -*-
 """
 分级缓存管理器
-支持不同数据类型的缓存，包含TTL管理和自动降级
+支持不同类型数据的缓存管理，包含TTL设置
 """
+
 import os
 import json
 import time
-import pandas as pd
 from datetime import datetime
-from typing import Dict, Any, Tuple, Optional
+import pandas as pd
+from typing import Any, Tuple, Dict, Optional
+
 
 class TieredCacheManager:
     """分级缓存管理器"""
@@ -37,40 +39,26 @@ class TieredCacheManager:
     def serialize(self, data: Any) -> str:
         """序列化数据"""
         if isinstance(data, pd.DataFrame):
-            return json.dumps({
-                "type": "DataFrame",
-                "data": data.to_json(orient="records", date_format="iso")
-            })
+            return data.to_json(orient="records", date_format="iso")
         elif isinstance(data, pd.Series):
-            return json.dumps({
-                "type": "Series",
-                "data": data.to_json(date_format="iso")
-            })
+            return data.to_json(date_format="iso")
         else:
-            return json.dumps({
-                "type": "Other",
-                "data": data
-            })
+            return json.dumps(data, ensure_ascii=False)
     
-    def deserialize(self, payload: str) -> Any:
+    def deserialize(self, payload: str, data_type: str) -> Any:
         """反序列化数据"""
-        try:
-            data = json.loads(payload)
-            if data.get("type") == "DataFrame":
-                return pd.read_json(data["data"], orient="records")
-            elif data.get("type") == "Series":
-                return pd.read_json(data["data"])
-            else:
-                return data["data"]
-        except Exception:
-            # 反序列化失败，返回原始数据
-            return payload
+        if data_type == "DataFrame":
+            return pd.read_json(payload, orient="records")
+        elif data_type == "Series":
+            return pd.read_json(payload, typ="series")
+        else:
+            return json.loads(payload)
     
     def get(self, key: str) -> Tuple[Optional[Any], str]:
-        """获取缓存数据
+        """获取缓存
         
         Returns:
-            (data, status) where status ∈ {"hit", "miss", "expired"}
+            (data, status): status ∈ {"hit", "miss", "expired"}
         """
         cache_file = self._get_cache_file(key)
         
@@ -79,37 +67,48 @@ class TieredCacheManager:
         
         try:
             with open(cache_file, 'r', encoding='utf-8') as f:
-                cache_data = json.load(f)
+                data = json.load(f)
             
-            # 检查缓存是否过期
-            timestamp = cache_data.get("timestamp", 0)
+            # 检查是否过期
+            timestamp = data.get("timestamp", 0)
             ttl = self.CACHE_TTL.get(key, 3600)
             
             if time.time() - timestamp > ttl:
                 return None, "expired"
             
             # 反序列化数据
-            data = self.deserialize(cache_data["data"])
-            return data, "hit"
+            payload = data.get("data", "")
+            data_type = data.get("data_type", "dict")
+            deserialized_data = self.deserialize(payload, data_type)
+            
+            return deserialized_data, "hit"
         except Exception:
-            # 缓存文件损坏
-            try:
-                os.remove(cache_file)
-            except:
-                pass
+            # 缓存文件损坏，视为miss
             return None, "miss"
     
     def set(self, key: str, data: Any) -> bool:
-        """设置缓存数据"""
+        """写入缓存"""
         try:
-            cache_file = self._get_cache_file(key)
+            # 确定数据类型
+            data_type = "dict"
+            if isinstance(data, pd.DataFrame):
+                data_type = "DataFrame"
+            elif isinstance(data, pd.Series):
+                data_type = "Series"
             
+            # 序列化数据
+            payload = self.serialize(data)
+            
+            # 构建缓存数据
             cache_data = {
                 "timestamp": time.time(),
                 "created_at": datetime.now().isoformat(),
-                "data": self.serialize(data)
+                "data": payload,
+                "data_type": data_type
             }
             
+            # 写入文件
+            cache_file = self._get_cache_file(key)
             with open(cache_file, 'w', encoding='utf-8') as f:
                 json.dump(cache_data, f, ensure_ascii=False, indent=2)
             
@@ -118,36 +117,42 @@ class TieredCacheManager:
             return False
     
     def load_or_fetch(self, key: str, fetch_func, force_refresh: bool = False) -> Tuple[Any, str]:
-        """加载缓存或执行获取函数"""
+        """加载缓存或获取数据
+        
+        Returns:
+            (data, status): status ∈ {"cached", "refreshed"}
+        """
         if not force_refresh:
             data, status = self.get(key)
             if status == "hit":
                 return data, "cached"
         
-        # 执行获取函数
-        try:
-            data = fetch_func()
+        # 获取新数据
+        data = fetch_func()
+        if data is not None:
             self.set(key, data)
             return data, "refreshed"
-        except Exception:
-            # 获取失败，尝试返回过期缓存
-            data, status = self.get(key)
-            if data is not None:
-                return data, "fallback"
-            raise
+        
+        # 获取失败，尝试使用过期缓存
+        data, status = self.get(key)
+        if status == "expired":
+            return data, "refreshed"
+        
+        return None, "refreshed"
     
     def invalidate(self, key: str) -> bool:
         """删除指定缓存"""
-        try:
-            cache_file = self._get_cache_file(key)
-            if os.path.exists(cache_file):
+        cache_file = self._get_cache_file(key)
+        if os.path.exists(cache_file):
+            try:
                 os.remove(cache_file)
-            return True
-        except Exception:
-            return False
+                return True
+            except Exception:
+                pass
+        return False
     
     def cache_status_report(self) -> Dict[str, Dict[str, Any]]:
-        """返回缓存状态报告"""
+        """返回所有缓存的状态报告"""
         report = {}
         
         for key in self.CACHE_TTL:
@@ -155,18 +160,18 @@ class TieredCacheManager:
             if os.path.exists(cache_file):
                 try:
                     with open(cache_file, 'r', encoding='utf-8') as f:
-                        cache_data = json.load(f)
-                    age = time.time() - cache_data.get("timestamp", 0)
+                        data = json.load(f)
+                    
+                    age = time.time() - data.get("timestamp", 0)
                     report[key] = {
                         "exists": True,
                         "age_seconds": round(age, 2),
-                        "expired": age > self.CACHE_TTL.get(key, 3600),
-                        "created_at": cache_data.get("created_at")
+                        "expired": age > self.CACHE_TTL.get(key, 3600)
                     }
                 except Exception:
                     report[key] = {
                         "exists": True,
-                        "status": "corrupted"
+                        "error": "corrupted"
                     }
             else:
                 report[key] = {
@@ -174,6 +179,7 @@ class TieredCacheManager:
                 }
         
         return report
+
 
 # 全局实例
 cache_manager = TieredCacheManager()

@@ -1,6 +1,7 @@
 import pandas as pd
 import numpy as np
 from loguru import logger
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 
 class BacktestEngine:
@@ -46,26 +47,36 @@ class BacktestEngine:
             params = self._get_default_params()
         
         results = {}
+        strategies = params.get('strategies', ['sma', 'rsi', 'macd', 'bb', 'multi', 'regime'])
         
-        # SMA策略
-        if 'sma' in params.get('strategies', ['sma']):
-            results['sma'] = self._run_sma_strategy(df, params)
+        # 定义策略映射
+        strategy_map = {
+            'sma': self._run_sma_strategy,
+            'rsi': self._run_rsi_strategy,
+            'macd': self._run_macd_strategy,
+            'bb': self._run_bb_strategy,
+            'multi': self._run_multi_factor_strategy,
+            'regime': self._run_regime_strategy
+        }
         
-        # RSI策略
-        if 'rsi' in params.get('strategies', ['rsi']):
-            results['rsi'] = self._run_rsi_strategy(df, params)
-        
-        # MACD策略
-        if 'macd' in params.get('strategies', ['macd']):
-            results['macd'] = self._run_macd_strategy(df, params)
-        
-        # 布林带策略
-        if 'bb' in params.get('strategies', ['bb']):
-            results['bb'] = self._run_bb_strategy(df, params)
-        
-        # 多因子策略
-        if 'multi' in params.get('strategies', ['multi']):
-            results['multi'] = self._run_multi_factor_strategy(df, params)
+        # 使用线程池并行执行策略
+        with ThreadPoolExecutor(max_workers=min(6, len(strategies))) as executor:
+            # 提交任务
+            future_to_strategy = {}
+            for strategy in strategies:
+                if strategy in strategy_map:
+                    future = executor.submit(strategy_map[strategy], df, params)
+                    future_to_strategy[future] = strategy
+            
+            # 收集结果
+            for future in as_completed(future_to_strategy):
+                strategy = future_to_strategy[future]
+                try:
+                    result = future.result()
+                    results[strategy] = result
+                except Exception as e:
+                    logger.error(f"策略 {strategy} 回测失败: {e}")
+                    results[strategy] = None
         
         return results
     
@@ -74,7 +85,7 @@ class BacktestEngine:
         获取默认参数
         """
         return {
-            'strategies': ['sma', 'rsi', 'macd', 'bb', 'multi'],
+            'strategies': ['sma', 'rsi', 'macd', 'bb', 'multi', 'regime'],
             
             # SMA
             'sma_fast': 20,
@@ -105,6 +116,9 @@ class BacktestEngine:
             
             # 多因子
             'multi_factor_threshold': 2,
+            
+            # Regime
+            'regime_quantile': 0.7,
         }
     
     def _run_sma_strategy(self, df, params):
@@ -175,6 +189,39 @@ class BacktestEngine:
         
         return self._execute_backtest(df, params, 'multi')
     
+    def _run_regime_strategy(self, df, params):
+        """
+        运行基于Regime的多策略融合
+        """
+        df = df.copy()
+        
+        # 趋势策略信号（SMA）
+        trend_entry = (df['sma_fast'] > df['sma_slow']) & (df['sma_fast'].shift(1) <= df['sma_slow'].shift(1))
+        trend_exit = (df['sma_fast'] < df['sma_slow']) & (df['sma_fast'].shift(1) >= df['sma_slow'].shift(1))
+        
+        # 震荡策略信号（RSI）
+        rsi_overbought = params.get('rsi_overbought', 65)
+        rsi_oversold = params.get('rsi_oversold', 35)
+        range_entry = (df['rsi'] < rsi_oversold) & (df['rsi'].shift(1) >= rsi_oversold)
+        range_exit = (df['rsi'] > rsi_overbought) & (df['rsi'].shift(1) <= rsi_overbought)
+        
+        # 波动过滤
+        vol_filter = df['atr'] < df['atr'].rolling(50).mean()
+        
+        # 根据Regime选择策略
+        df['entry'] = False
+        df['exit'] = False
+        
+        # TREND状态使用趋势策略
+        df.loc[df['regime'] == 'TREND', 'entry'] = trend_entry & vol_filter
+        df.loc[df['regime'] == 'TREND', 'exit'] = trend_exit
+        
+        # RANGE状态使用震荡策略
+        df.loc[df['regime'] == 'RANGE', 'entry'] = range_entry & vol_filter
+        df.loc[df['regime'] == 'RANGE', 'exit'] = range_exit
+        
+        return self._execute_backtest(df, params, 'regime')
+    
     def _execute_backtest(self, df, params, strategy_name):
         """
         执行回测核心逻辑（向量化实现）
@@ -200,6 +247,20 @@ class BacktestEngine:
         atr_multiplier = params.get('atr_multiplier', 1.5)
         use_dxy_filter = params.get('use_dxy_filter', False)
         
+        # 向量化计算信号
+        entry_signals = df['entry'].values
+        exit_signals = df['exit'].values
+        prices = df['close'].values
+        
+        # DXY过滤信号
+        dxy_filter = np.zeros(n, dtype=bool)
+        if use_dxy_filter and 'dxy_cross_up' in df.columns:
+            dxy_filter = df['dxy_cross_up'].values == 1
+        
+        # ATR值
+        atr = df['atr'].values if 'atr' in df.columns else np.zeros(n)
+        atr_pct = df['atr_pct'].values if 'atr_pct' in df.columns else np.zeros(n)
+        
         # 进入回测循环
         in_position = False
         entry_price = 0
@@ -211,10 +272,10 @@ class BacktestEngine:
             position[i] = position[i-1]
             
             # 当前价格
-            current_price = df['close'].iloc[i]
+            current_price = prices[i]
             
             # DXY过滤
-            if use_dxy_filter and df.get('dxy_cross_up', 0).iloc[i] == 1 and in_position:
+            if use_dxy_filter and dxy_filter[i] and in_position:
                 # DXY上穿，平仓
                 trades.append({
                     'date': df.index[i],
@@ -249,7 +310,7 @@ class BacktestEngine:
                 continue
             
             # 出场信号
-            if in_position and df['exit'].iloc[i]:
+            if in_position and exit_signals[i]:
                 trades.append({
                     'date': df.index[i],
                     'type': 'exit',
@@ -265,13 +326,12 @@ class BacktestEngine:
                 continue
             
             # 入场信号
-            if not in_position and df['entry'].iloc[i]:
+            if not in_position and entry_signals[i]:
                 # 计算仓位大小
                 if params.get('use_vol_sizing', True):
                     target_vol = params.get('target_vol', 0.01)
-                    atr_pct = df['atr_pct'].iloc[i]
-                    if atr_pct > 0:
-                        position_size = (self.initial_cash * target_vol) / (atr_pct * current_price)
+                    if atr_pct[i] > 0:
+                        position_size = (self.initial_cash * target_vol) / (atr_pct[i] * current_price)
                     else:
                         position_size = self.initial_cash * 0.5 / current_price
                 else:
@@ -294,7 +354,7 @@ class BacktestEngine:
                     position[i] = position_size
                     in_position = True
                     entry_price = current_price
-                    stop_loss = entry_price - atr_multiplier * df['atr'].iloc[i]
+                    stop_loss = entry_price - atr_multiplier * atr[i]
             
             # 计算净值
             portfolio_value[i] = cash[i] + position[i] * current_price

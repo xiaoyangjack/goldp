@@ -3,6 +3,7 @@ import numpy as np
 import yfinance as yf
 from datetime import datetime
 from loguru import logger
+from core.cache_manager import get_cache_manager
 
 
 class DataEngine:
@@ -14,15 +15,18 @@ class DataEngine:
     - 同时拉取 DX-Y.NYB（美元指数 DXY）用于宏观过滤
     - 支持离线模式：若网络失败自动切换为内置模拟数据（GBM）
     - 日期范围：用户可在 GUI 选择（默认 2020-01-01 至今）
+    - 本地缓存：自动缓存数据，减少网络请求
     """
     
-    def __init__(self):
+    def __init__(self, use_cache=True):
         self.price_data = None
         self.dxy_data = None
         self.is_online = True
+        self.use_cache = use_cache
+        self.cache_manager = get_cache_manager()
     
     def fetch_data(self, ticker='GC=F', start_date='2020-01-01', 
-                  end_date=None, use_dxy=True):
+                  end_date=None, use_dxy=True, force_refresh=False):
         """
         获取价格数据
         
@@ -31,12 +35,28 @@ class DataEngine:
             start_date: 开始日期
             end_date: 结束日期，默认为今天
             use_dxy: 是否同时获取DXY数据
+            force_refresh: 强制刷新，不使用缓存
         
         Returns:
             pd.DataFrame: 包含价格数据的DataFrame
         """
         if end_date is None:
             end_date = datetime.now().strftime('%Y-%m-%d')
+        
+        # 生成缓存键
+        cache_identifier = f"data_{ticker}_{start_date}_{end_date}_{use_dxy}"
+        
+        # 尝试从缓存获取
+        if self.use_cache and not force_refresh:
+            cached_data = self.cache_manager.get(cache_identifier)
+            if cached_data is not None:
+                logger.info(f"从缓存获取数据: {ticker}")
+                self.price_data = cached_data
+                # 尝试获取数据源信息
+                summary = self.get_data_summary()
+                if summary:
+                    self.is_online = summary.get('data_source') == 'yfinance'
+                return cached_data
         
         try:
             logger.info(f"尝试从yfinance获取数据: {ticker}, {start_date} 到 {end_date}")
@@ -46,38 +66,42 @@ class DataEngine:
             
             if len(data) == 0:
                 logger.warning("yfinance返回空数据，使用模拟数据")
-                return self._generate_simulation_data(start_date, end_date)
-            
-            # 处理数据
-            df = data.copy()
-            # 处理MultiIndex列名
-            if isinstance(df.columns, pd.MultiIndex):
-                df.columns = df.columns.get_level_values(0).str.lower()
+                df = self._generate_simulation_data(start_date, end_date)
             else:
-                df.columns = df.columns.str.lower()
-            
-            # 确保必要的列存在
-            if 'close' not in df.columns:
-                logger.error("数据缺少close列")
-                return self._generate_simulation_data(start_date, end_date)
-            
-            # 如果没有high、low、volume列，使用简化计算
-            if 'high' not in df.columns:
-                df['high'] = df['close'] * 1.01
-            if 'low' not in df.columns:
-                df['low'] = df['close'] * 0.99
-            if 'volume' not in df.columns:
-                df['volume'] = 1000000
-            
-            # 获取DXY数据
-            if use_dxy:
-                dxy_data = self._fetch_dxy_data(start_date, end_date)
-                if dxy_data is not None:
-                    df = df.join(dxy_data, how='left')
-                    df['dxy_close'] = df['dxy_close'].fillna(method='ffill')
+                # 处理数据
+                df = data.copy()
+                # 处理MultiIndex列名
+                if isinstance(df.columns, pd.MultiIndex):
+                    df.columns = df.columns.get_level_values(0).str.lower()
+                else:
+                    df.columns = df.columns.str.lower()
+                
+                # 确保必要的列存在
+                if 'close' not in df.columns:
+                    logger.error("数据缺少close列")
+                    df = self._generate_simulation_data(start_date, end_date)
+                else:
+                    # 如果没有high、low、volume列，使用简化计算
+                    if 'high' not in df.columns:
+                        df['high'] = df['close'] * 1.01
+                    if 'low' not in df.columns:
+                        df['low'] = df['close'] * 0.99
+                    if 'volume' not in df.columns:
+                        df['volume'] = 1000000
+                    
+                    # 获取DXY数据
+                    if use_dxy:
+                        dxy_data = self._fetch_dxy_data(start_date, end_date)
+                        if dxy_data is not None:
+                            df = df.join(dxy_data, how='left')
+                            df['dxy_close'] = df['dxy_close'].ffill()
             
             self.price_data = df
-            self.is_online = True
+            self.is_online = len(data) > 0 if 'data' in locals() else False
+            
+            # 保存到缓存
+            if self.use_cache:
+                self.cache_manager.put(cache_identifier, df, ttl_hours=24)
             
             logger.info(f"数据获取成功: {len(df)} 条记录")
             return df
@@ -85,7 +109,13 @@ class DataEngine:
         except Exception as e:
             logger.warning(f"yfinance数据获取失败: {e}，使用模拟数据")
             self.is_online = False
-            return self._generate_simulation_data(start_date, end_date)
+            df = self._generate_simulation_data(start_date, end_date)
+            
+            # 保存模拟数据到缓存（较短的TTL）
+            if self.use_cache:
+                self.cache_manager.put(cache_identifier, df, ttl_hours=1)
+            
+            return df
     
     def _fetch_dxy_data(self, start_date, end_date):
         """

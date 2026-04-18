@@ -1,0 +1,94 @@
+2026-04-17 13:59:19.217 | INFO     | __main__:main:32 - 开始回测流程
+2026-04-17 13:59:19.218 | INFO     | __main__:main:35 - 初始化数据引擎
+2026-04-17 13:59:19.218 | INFO     | __main__:main:39 - 获取XAUUSD数据
+2026-04-17 13:59:19.219 | INFO     | core.data_engine:fetch_data:42 - 尝试从yfinance获取数据: GC=F, 2020-01-01 到 2026-04-17
+2026-04-17 13:59:24.113 | INFO     | core.data_engine:fetch_data:82 - 数据获取成功: 1582 条记录
+2026-04-17 13:59:24.114 | INFO     | __main__:main:53 - 数据摘要: {'start_date': '2020-01-02', 'end_date': '2026-04-16', 'total_days': 1582, 'data_source': 'yfinance', 'min_price': 1477.300048828125, 'max_price': 5318.39990234375, 'mean_price': 2312.906696768084, 'has_dxy': True}
+2026-04-17 13:59:24.115 | INFO     | __main__:main:56 - 初始化因子引擎
+2026-04-17 13:59:24.115 | INFO     | __main__:main:60 - 计算因子
+2026-04-17 13:59:24.120 | INFO     | core.factor_engine:_calculate_sma:96 - SMA计算完成: fast=20, slow=60
+2026-04-17 13:59:24.130 | INFO     | core.factor_engine:_calculate_macd:128 - MACD计算完成: fast=12, slow=26, signal=9
+2026-04-17 13:59:24.137 | INFO     | core.factor_engine:_calculate_rsi:160 - RSI计算完成: period=14
+2026-04-17 13:59:24.148 | INFO     | core.factor_engine:_calculate_bollinger_bands:191 - 布林带计算完成: period=20, std=2.0
+2026-04-17 13:59:24.155 | INFO     | core.factor_engine:_calculate_atr:220 - ATR计算完成: period=14
+2026-04-17 13:59:24.168 | INFO     | core.factor_engine:_calculate_momentum:245 - 动量计算完成: periods=[20, 60]
+2026-04-17 13:59:24.175 | INFO     | core.factor_engine:_calculate_dxy_factors:268 - DXY因子计算完成: period=5
+2026-04-17 13:59:24.183 | INFO     | core.factor_engine:_calculate_regime:297 - Regime计算完成: 阈值=2.5477, TREND占比=28.89%
+2026-04-17 13:59:24.184 | INFO     | core.factor_engine:calculate_all_factors:72 - 所有因子计算完成
+2026-04-17 13:59:24.185 | INFO     | __main__:main:67 - 因子计算完成，共有 27 个因子
+2026-04-17 13:59:24.185 | INFO     | __main__:main:70 - 初始化回测引擎
+2026-04-17 13:59:24.185 | INFO     | __main__:main:77 - 运行回测
+2026-04-17 13:59:24.696 | INFO     | __main__:main:85 - 初始化分析引擎
+2026-04-17 13:59:24.696 | INFO     | __main__:main:89 - 分析回测结果
+2026-04-17 13:59:24.738 | INFO     | core.analytics_engine:_calculate_ic_analysis:84 - IC分析计算完成
+2026-04-17 13:59:24.798 | INFO     | core.analytics_engine:_calculate_correlation_matrix:114 - 相关性矩阵计算完成
+2026-04-17 13:59:24.799 | INFO     | core.analytics_engine:_generate_param_heatmap:146 - 参数热图数据生成完成
+2026-04-17 13:59:24.799 | INFO     | __main__:main:93 - 导出回测报告
+2026-04-17 13:59:24.849 | INFO     | core.analytics_engine:_calculate_ic_analysis:84 - IC分析计算完成
+2026-04-17 13:59:24.850 | INFO     | core.analytics_engine:export_report:312 - 报告导出成功: /Users/hh/Documents/trae_projects/goldp/GoldQuant/gold_quant_system/core/../data/gold_quant_report_20260417_135924.html
+2026-04-17 13:59:24.850 | INFO     | __main__:main:97 - 执行Walk-Forward验证
+2026-04-17 13:59:26.439 | INFO     | core.analytics_engine:run_walk_forward:217 - Walk-Forward验证完成，共126个测试周期
+2026-04-17 13:59:26.441 | INFO     | __main__:main:106 - 
+=== 回测结果摘要 ===
+2026-04-17 13:59:26.442 | INFO     | __main__:main:109 - 
+策略: sma
+2026-04-17 13:59:26.442 | INFO     | __main__:main:110 - 总收益: 54.54%
+2026-04-17 13:59:26.442 | INFO     | __main__:main:111 - 年化收益: 7.18%
+2026-04-17 13:59:26.442 | INFO     | __main__:main:112 - 夏普比率: 0.00
+2026-04-17 13:59:26.443 | INFO     | __main__:main:113 - 最大回撤: -100.00%
+2026-04-17 13:59:26.443 | INFO     | __main__:main:114 - 胜率: 50.00%
+2026-04-17 13:59:26.443 | INFO     | __main__:main:115 - 交易次数: 14
+2026-04-17 13:59:26.444 | INFO     | __main__:main:109 - 
+策略: rsi
+2026-04-17 13:59:26.444 | INFO     | __main__:main:110 - 总收益: 14.87%
+2026-04-17 13:59:26.445 | INFO     | __main__:main:111 - 年化收益: 2.23%
+2026-04-17 13:59:26.445 | INFO     | __main__:main:112 - 夏普比率: 0.00
+2026-04-17 13:59:26.445 | INFO     | __main__:main:113 - 最大回撤: -100.00%
+2026-04-17 13:59:26.446 | INFO     | __main__:main:114 - 胜率: 45.45%
+2026-04-17 13:59:26.446 | INFO     | __main__:main:115 - 交易次数: 33
+2026-04-17 13:59:26.446 | INFO     | __main__:main:109 - 
+策略: macd
+2026-04-17 13:59:26.446 | INFO     | __main__:main:110 - 总收益: 45.53%
+2026-04-17 13:59:26.446 | INFO     | __main__:main:111 - 年化收益: 6.16%
+2026-04-17 13:59:26.446 | INFO     | __main__:main:112 - 夏普比率: 0.00
+2026-04-17 13:59:26.447 | INFO     | __main__:main:113 - 最大回撤: -100.00%
+2026-04-17 13:59:26.447 | INFO     | __main__:main:114 - 胜率: 45.16%
+2026-04-17 13:59:26.447 | INFO     | __main__:main:115 - 交易次数: 62
+2026-04-17 13:59:26.447 | INFO     | __main__:main:109 - 
+策略: bb
+2026-04-17 13:59:26.448 | INFO     | __main__:main:110 - 总收益: 22.05%
+2026-04-17 13:59:26.448 | INFO     | __main__:main:111 - 年化收益: 3.22%
+2026-04-17 13:59:26.448 | INFO     | __main__:main:112 - 夏普比率: 0.00
+2026-04-17 13:59:26.449 | INFO     | __main__:main:113 - 最大回撤: -100.00%
+2026-04-17 13:59:26.449 | INFO     | __main__:main:114 - 胜率: 50.00%
+2026-04-17 13:59:26.449 | INFO     | __main__:main:115 - 交易次数: 32
+2026-04-17 13:59:26.450 | INFO     | __main__:main:109 - 
+策略: multi
+2026-04-17 13:59:26.450 | INFO     | __main__:main:110 - 总收益: 56.58%
+2026-04-17 13:59:26.451 | INFO     | __main__:main:111 - 年化收益: 7.40%
+2026-04-17 13:59:26.451 | INFO     | __main__:main:112 - 夏普比率: 0.00
+2026-04-17 13:59:26.451 | INFO     | __main__:main:113 - 最大回撤: -100.00%
+2026-04-17 13:59:26.452 | INFO     | __main__:main:114 - 胜率: 48.00%
+2026-04-17 13:59:26.453 | INFO     | __main__:main:115 - 交易次数: 25
+2026-04-17 13:59:26.453 | INFO     | __main__:main:109 - 
+策略: regime
+2026-04-17 13:59:26.454 | INFO     | __main__:main:110 - 总收益: -10.88%
+2026-04-17 13:59:26.454 | INFO     | __main__:main:111 - 年化收益: -1.82%
+2026-04-17 13:59:26.455 | INFO     | __main__:main:112 - 夏普比率: 0.00
+2026-04-17 13:59:26.455 | INFO     | __main__:main:113 - 最大回撤: -100.00%
+2026-04-17 13:59:26.456 | INFO     | __main__:main:114 - 胜率: 23.53%
+2026-04-17 13:59:26.456 | INFO     | __main__:main:115 - 交易次数: 17
+2026-04-17 13:59:26.456 | INFO     | __main__:main:117 - 
+报告已导出至: /Users/hh/Documents/trae_projects/goldp/GoldQuant/gold_quant_system/core/../data/gold_quant_report_20260417_135924.html
+2026-04-17 13:59:26.456 | INFO     | __main__:main:120 - 
+=== Walk-Forward验证结果 ===
+2026-04-17 13:59:26.472 | INFO     | __main__:main:125 - 
+            sharpe  total_return
+strategy                        
+bb        0.000000      0.003673
+macd     -0.080484     -0.086998
+multi     0.517477      0.008387
+regime   -0.188375     -0.002025
+rsi      -0.038050     -0.048993
+sma       0.660726      0.010164
+2026-04-17 13:59:26.472 | INFO     | __main__:main:127 - 回测流程完成

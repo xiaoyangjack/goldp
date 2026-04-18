@@ -4,6 +4,7 @@
 定时任务调度器
 管理数据更新和系统健康检查
 """
+
 import os
 import time
 import sched
@@ -14,6 +15,7 @@ from typing import Dict, Any
 
 from core.data_provider import GoldDataProvider
 from core.cache import TieredCacheManager
+
 
 class GoldQuantScheduler:
     """黄金量化调度器"""
@@ -78,7 +80,7 @@ class GoldQuantScheduler:
                 self._send_notification("GoldQuant", "黄金数据更新失败")
         except Exception as e:
             self._log("ERROR", "update_gold_data", f"更新失败: {e}")
-            self._send_notification("GoldQuant", f"黄金数据更新失败: {str(e)[:50]}")
+            self._send_notification("GoldQuant", f"黄金数据更新失败: {str(e)[:50]")
         finally:
             # 重新调度
             self.scheduler.enter(self.SCHEDULED_TASKS["update_gold_daily"]["interval"],
@@ -202,6 +204,7 @@ class GoldQuantScheduler:
             "tasks": self.SCHEDULED_TASKS,
             "timestamp": datetime.now().isoformat()
         }
+
 
 # 全局实例
 scheduler = GoldQuantScheduler()

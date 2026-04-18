@@ -5,6 +5,7 @@ __pycache__/
 .env
 node_modules/
 gold_quant_env/
+venv/
 logs/
 .DS_Store
 *.db
